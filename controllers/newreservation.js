@@ -56,13 +56,49 @@ exports.update = (req, res) => {
 
 exports.list = (req, res) => {
 	const userId = mongoose.Types.ObjectId(req.params.accountId);
+	const today = new Date();
+	const thirtyDaysAgo = new Date(today);
+	thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-	New_Reservation.find({ belongsTo: userId })
+	New_Reservation.find({
+		belongsTo: userId,
+		start_date: {
+			$gte: thirtyDaysAgo, // Greater than or equal to 30 days ago
+		},
+	})
 		.populate("belongsTo")
 		.exec((err, data) => {
 			if (err) {
 				console.log(err, "err");
+				return res.status(400).json({
+					error: err,
+				});
+			}
+			res.json(data);
+		});
+};
 
+exports.list2 = (req, res) => {
+	const userId = mongoose.Types.ObjectId(req.params.accountId);
+	const today = new Date();
+	const thirtyDaysAgo = new Date(today);
+	thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+	New_Reservation.find({
+		belongsTo: userId,
+		start_date: {
+			$gte: thirtyDaysAgo, // Greater than or equal to 30 days ago
+		},
+	})
+		.populate("belongsTo")
+		.populate(
+			"roomId",
+			"room_number room_type room_features room_pricing floor roomColorCode"
+		) // Populate room details
+		.sort({ createdAt: -1 })
+		.exec((err, data) => {
+			if (err) {
+				console.log(err, "err");
 				return res.status(400).json({
 					error: err,
 				});

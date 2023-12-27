@@ -50,7 +50,11 @@ const newReservationSchema = new mongoose.Schema(
 
 		belongsTo: { type: ObjectId, ref: "User" },
 		hotelId: { type: ObjectId, ref: "HotelDetails" },
-		roomId: { type: ObjectId, ref: "Rooms" },
+		roomId: [{ type: ObjectId, ref: "Rooms" }],
+		pickedRoomsPricing: {
+			type: Array,
+			default: [],
+		},
 	},
 	{ timestamps: true }
 );

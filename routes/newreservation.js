@@ -17,6 +17,7 @@ const {
 	update,
 	list,
 	listForAdmin,
+	list2,
 } = require("../controllers/newreservation");
 
 router.get("/new-reservation-single/:newreservationId", read);
@@ -38,6 +39,7 @@ router.put(
 );
 
 router.get("/new-reservation/:accountId", list);
+router.get("/new-reservation2/:accountId", list2);
 router.get("/new-reservation-admin", isAuth, isAdmin, listForAdmin);
 
 router.param("userId", userById);
