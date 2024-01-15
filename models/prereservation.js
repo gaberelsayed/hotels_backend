@@ -3,7 +3,7 @@
 const mongoose = require("mongoose");
 const { ObjectId } = mongoose.Schema;
 
-const newReservationSchema = new mongoose.Schema(
+const prereservationSchema = new mongoose.Schema(
 	{
 		customer_details: {
 			type: Object,
@@ -77,8 +77,8 @@ const newReservationSchema = new mongoose.Schema(
 
 		belongsTo: { type: ObjectId, ref: "User" },
 		hotelId: { type: ObjectId, ref: "HotelDetails" },
-		roomId: [{ type: ObjectId, ref: "Rooms" }],
-		pickedRoomsPricing: {
+
+		pickedRoomsType: {
 			type: Array,
 			default: [],
 		},
@@ -86,4 +86,4 @@ const newReservationSchema = new mongoose.Schema(
 	{ timestamps: true }
 );
 
-module.exports = mongoose.model("New_Reservation", newReservationSchema);
+module.exports = mongoose.model("Pre_Reservation", prereservationSchema);

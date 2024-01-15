@@ -17,6 +17,7 @@ const {
 	update,
 	list,
 	listForAdmin,
+	listOfRoomsSummary,
 } = require("../controllers/rooms");
 
 router.get("/room-single/:roomId", read);
@@ -38,6 +39,7 @@ router.put(
 );
 
 router.get("/room/:accountId", list);
+router.get("/room/:checkin/:checkout", listOfRoomsSummary);
 router.get("/room-admin", isAuth, isAdmin, listForAdmin);
 
 router.param("userId", userById);
