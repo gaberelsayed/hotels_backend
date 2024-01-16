@@ -158,7 +158,7 @@ exports.reservationSearch = async (req, res) => {
 
 		if (!reservation) {
 			return res.status(404).json({
-				message: "No reservation found matching the search criteria.",
+				error: "No reservation found matching the search criteria.",
 			});
 		}
 

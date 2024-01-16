@@ -41,6 +41,12 @@ const prereservationSchema = new mongoose.Schema(
 			default: "Not Paid",
 		},
 
+		payment: {
+			type: String, //Leave Default
+			trim: true,
+			default: "",
+		},
+
 		overallBookingStatus: {
 			type: String, //Leave Default
 			trim: true,

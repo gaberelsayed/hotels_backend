@@ -145,26 +145,44 @@ function normalizeRoomName(apiRoomName) {
 function mapRoomType(apiRoomName) {
 	const normalizedRoomName = normalizeRoomName(apiRoomName);
 
-	// Define mappings from normalized API room names to your schema's room_type names
 	const roomTypeMappings = {
 		"Double Room": "doubleRooms",
 		"Triple Room": "tripleRooms",
 		Suite: "suite",
 		"Quad Room": "quadRooms",
 		"Family Room": "familyRooms",
+		"Single Room-NR": "singleRooms",
+		"Single Room": "singleRooms",
+		"غرفه ثلاثى": "tripleRooms",
+		"غرفه رباعية": "quadRooms",
+		"سويت بغرفتين": "suite",
+		"غرفه عائلية": "familyRooms",
+		"غرفة لذوى الأحتياجات الخاصة": "standardRooms",
+		"Default room type": "standardRooms",
+		"Premier Suite - Standalone - Standard - Derived": "suite",
+		// Add any additional mappings as needed.
 	};
 
-	return roomTypeMappings[normalizedRoomName] || "unknown"; // Default to 'unknown' if no mapping found
+	// Return the mapping if found, otherwise return the normalized room name
+	return roomTypeMappings[normalizedRoomName] || normalizedRoomName;
 }
 
 function mapHotelRunnerResponseToSchema(apiResponse) {
 	const reservation = apiResponse; // Assuming we are working with the first reservation
 
-	const mappedRooms = reservation.rooms.map((room) => ({
-		room_type: mapRoomType(room.name),
-		chosenPrice: room.total,
-		count: 1,
-	}));
+	const mappedRooms = reservation.rooms.map((room) => {
+		// Get the price from the first item in the daily_prices array
+		const dailyPrice =
+			room.daily_prices && room.daily_prices.length > 0
+				? room.daily_prices[0].price
+				: room.total; // Fallback to room.total if daily_prices is empty or not present
+
+		return {
+			room_type: mapRoomType(room.name),
+			chosenPrice: dailyPrice,
+			count: 1,
+		};
+	});
 
 	const mappedReservation = {
 		customer_details: {
@@ -183,9 +201,14 @@ function mapHotelRunnerResponseToSchema(apiResponse) {
 		total_amount: reservation.total,
 		booking_source: reservation.channel_display.toLowerCase(),
 		booking_comment: reservation.note,
-		provider_number: reservation.provider_number,
-		confirmation_number: reservation.reservation_id.toString(),
+		provider_number: reservation.reservation_id,
+		confirmation_number: reservation.provider_number.toString(),
 		pickedRoomsType: mappedRooms,
+		payment_status:
+			reservation.paid_amount === 0 && reservation.payment === "HotelCollect"
+				? "Not Paid"
+				: "Paid",
+		payment: reservation.payment,
 	};
 
 	return mappedReservation;
@@ -270,33 +293,35 @@ exports.listOfAllReservationSummary = (req, res) => {
 		});
 };
 
-// exports.listOfAllReservationSummaryBasic = (req, res) => {
-// 	const token = process.env.HOTEL_RUNNER_TOKEN;
-// 	const hrId = process.env.HR_ID;
+exports.listOfAllReservationSummaryBasic = (req, res) => {
+	const token = process.env.HOTEL_RUNNER_TOKEN;
+	const hrId = process.env.HR_ID;
+	const reservationNumber = req.params.reservationNumber;
 
-// 	const queryParams = new URLSearchParams({
-// 		token: token,
-// 		hr_id: hrId,
-// 		undelivered: "false", // Assuming 'false' will include all reservations
-// 		modified: "false", // Assuming 'false' will not filter out unmodified reservations
-// 		per_page: "1", // Example: Adjust as needed based on the maximum allowed by the API
-// 		// You can add more parameters here as required.
-// 	}).toString();
+	const queryParams = new URLSearchParams({
+		token: token,
+		hr_id: hrId,
+		undelivered: "false", // Assuming 'false' will include all reservations
+		modified: "false", // Assuming 'false' will not filter out unmodified reservations
+		per_page: "1", // Example: Adjust as needed based on the maximum allowed by the API
+		reservation_number: reservationNumber,
+		// You can add more parameters here as required.
+	}).toString();
 
-// 	const url = `https://app.hotelrunner.com/api/v2/apps/reservations?${queryParams}`;
+	const url = `https://app.hotelrunner.com/api/v2/apps/reservations?${queryParams}`;
 
-// 	fetch(url)
-// 		.then((apiResponse) => {
-// 			if (!apiResponse.ok) {
-// 				throw new Error(`HTTP error! status: ${apiResponse.status}`);
-// 			}
-// 			return apiResponse.json();
-// 		})
-// 		.then((data) => {
-// 			res.json(data); // Send back the data received from the HotelRunner API
-// 		})
-// 		.catch((error) => {
-// 			console.error("API request error:", error);
-// 			res.status(500).json({ error: "Error fetching reservations" });
-// 		});
-// };
+	fetch(url)
+		.then((apiResponse) => {
+			if (!apiResponse.ok) {
+				throw new Error(`HTTP error! status: ${apiResponse.status}`);
+			}
+			return apiResponse.json();
+		})
+		.then((data) => {
+			res.json(data); // Send back the data received from the HotelRunner API
+		})
+		.catch((error) => {
+			console.error("API request error:", error);
+			res.status(500).json({ error: "Error fetching reservations" });
+		});
+};
