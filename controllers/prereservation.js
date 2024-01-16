@@ -149,6 +149,7 @@ exports.reservationSearch = async (req, res) => {
 				{ "customer_details.passportExpiry": searchPattern },
 				{ "customer_details.nationality": searchPattern },
 				{ confirmation_number: searchPattern },
+				{ provider_number: searchPattern },
 			],
 		};
 
