@@ -297,6 +297,53 @@ exports.listOfAllReservationSummaryBasic = (req, res) => {
 	const token = process.env.HOTEL_RUNNER_TOKEN;
 	const hrId = process.env.HR_ID;
 	const reservationNumber = req.params.reservationNumber;
+	const hotelId = req.params.hotelId; // Assuming you are passing hotelId as a parameter
+	const belongsTo = req.params.belongsTo; // Assuming you are passing belongsTo as a parameter
+
+	const queryParams = new URLSearchParams({
+		token: token,
+		hr_id: hrId,
+		reservation_number: reservationNumber,
+		// ... other query params
+	}).toString();
+
+	const url = `https://app.hotelrunner.com/api/v2/apps/reservations?${queryParams}`;
+
+	fetch(url)
+		.then((apiResponse) => {
+			if (!apiResponse.ok) {
+				throw new Error(`HTTP error! status: ${apiResponse.status}`);
+			}
+			return apiResponse.json();
+		})
+		.then((data) => {
+			if (!data.reservations || data.reservations.length === 0) {
+				throw new Error("No reservations found");
+			}
+			const reservation = data.reservations[0]; // Assuming we are interested in the first reservation
+
+			const mappedReservation = mapHotelRunnerResponseToSchema(reservation);
+			mappedReservation.belongsTo = belongsTo;
+			mappedReservation.hotelId = hotelId;
+
+			// Create a new PreReservation document
+			return new PreReservation(mappedReservation).save();
+		})
+		.then((newReservation) => {
+			res.json(newReservation); // Send back the newly created PreReservation document
+		})
+		.catch((error) => {
+			console.error("API request error:", error);
+			res
+				.status(500)
+				.json({ error: "Error fetching and processing reservation" });
+		});
+};
+
+exports.singleReservationHotelRunner = (req, res) => {
+	const token = process.env.HOTEL_RUNNER_TOKEN;
+	const hrId = process.env.HR_ID;
+	const reservationNumber = req.params.reservationNumber;
 
 	const queryParams = new URLSearchParams({
 		token: token,

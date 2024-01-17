@@ -20,6 +20,7 @@ const {
 	list2,
 	listOfAllReservationSummary,
 	listOfAllReservationSummaryBasic,
+	singleReservationHotelRunner,
 } = require("../controllers/newreservation");
 
 router.get("/new-reservation-single/:newreservationId", read);
@@ -41,7 +42,14 @@ router.put(
 );
 
 router.get("/new-reservation/:accountId", list);
-router.get("/basic", listOfAllReservationSummaryBasic);
+router.get(
+	"/single-reservation/hotel-runner/:reservationNumber",
+	singleReservationHotelRunner
+);
+router.get(
+	"/single-prereservation/:reservationNumber/:hotelId/:belongsTo",
+	listOfAllReservationSummaryBasic
+);
 router.get("/new-reservation2/:accountId", list2);
 router.get("/new-reservation-admin", isAuth, isAdmin, listForAdmin);
 router.get(
