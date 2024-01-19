@@ -21,6 +21,7 @@ const {
 	listOfAllReservationSummary,
 	listOfAllReservationSummaryBasic,
 	singleReservationHotelRunner,
+	hotelRunnerPaginatedList,
 } = require("../controllers/newreservation");
 
 router.get("/new-reservation-single/:newreservationId", read);
@@ -51,6 +52,10 @@ router.get(
 	listOfAllReservationSummaryBasic
 );
 router.get("/new-reservation2/:accountId", list2);
+router.get(
+	"/reservation/list/paginated/:page/:per_page",
+	hotelRunnerPaginatedList
+);
 router.get("/new-reservation-admin", isAuth, isAdmin, listForAdmin);
 router.get(
 	"/reservations-from-platforms/:hotelId/:belongsTo",

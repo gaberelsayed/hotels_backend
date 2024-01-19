@@ -204,10 +204,8 @@ function mapHotelRunnerResponseToSchema(apiResponse) {
 		provider_number: reservation.reservation_id,
 		confirmation_number: reservation.provider_number.toString(),
 		pickedRoomsType: mappedRooms,
-		payment_status:
-			reservation.paid_amount === 0 && reservation.payment === "HotelCollect"
-				? "Not Paid"
-				: "Paid",
+		payment_status: reservation.payment,
+		overallBookingStatus: reservation.state,
 		payment: reservation.payment,
 	};
 
@@ -238,11 +236,20 @@ exports.listOfAllReservationSummary = (req, res) => {
 		hr_id: hrId,
 		undelivered: "false", // Assuming 'false' will include all reservations
 		modified: "false", // Assuming 'false' will not filter out unmodified reservations
-		per_page: "200", // Example: Adjust as needed based on the maximum allowed by the
+		per_page: 100, // Example: Adjust as needed based on the maximum allowed by the
 		from_date: fromDate, // Fetch reservations created after this date
 		// booked: "true", // Fetch only new reservations
 		// ... other query params
 	}).toString();
+
+	// const queryParams = new URLSearchParams({
+	// 	token: token,
+	// 	hr_id: hrId,
+	// 	undelivered: "false", // Assuming 'false' will include all reservations
+	// 	modified: "false", // Assuming 'false' will not filter out unmodified reservations
+	// 	page: 23, // Use the page number from the route parameter
+	// 	per_page: 15, // Use the per_page limit from the route parameter
+	// }).toString();
 
 	const url = `https://app.hotelrunner.com/api/v2/apps/reservations?${queryParams}`;
 
@@ -353,6 +360,41 @@ exports.singleReservationHotelRunner = (req, res) => {
 		per_page: "1", // Example: Adjust as needed based on the maximum allowed by the API
 		reservation_number: reservationNumber,
 		// You can add more parameters here as required.
+	}).toString();
+
+	const url = `https://app.hotelrunner.com/api/v2/apps/reservations?${queryParams}`;
+
+	fetch(url)
+		.then((apiResponse) => {
+			if (!apiResponse.ok) {
+				throw new Error(`HTTP error! status: ${apiResponse.status}`);
+			}
+			return apiResponse.json();
+		})
+		.then((data) => {
+			res.json(data); // Send back the data received from the HotelRunner API
+		})
+		.catch((error) => {
+			console.error("API request error:", error);
+			res.status(500).json({ error: "Error fetching reservations" });
+		});
+};
+
+exports.hotelRunnerPaginatedList = (req, res) => {
+	const token = process.env.HOTEL_RUNNER_TOKEN;
+	const hrId = process.env.HR_ID;
+
+	// Extract page and per_page from the route parameters
+	const { page, per_page } = req.params;
+
+	// Construct the query parameters
+	const queryParams = new URLSearchParams({
+		token: token,
+		hr_id: hrId,
+		undelivered: "false", // Assuming 'false' will include all reservations
+		modified: "false", // Assuming 'false' will not filter out unmodified reservations
+		page: page, // Use the page number from the route parameter
+		per_page: per_page, // Use the per_page limit from the route parameter
 	}).toString();
 
 	const url = `https://app.hotelrunner.com/api/v2/apps/reservations?${queryParams}`;
