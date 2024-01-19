@@ -58,7 +58,7 @@ router.get(
 );
 router.get("/new-reservation-admin", isAuth, isAdmin, listForAdmin);
 router.get(
-	"/reservations-from-platforms/:hotelId/:belongsTo",
+	"/reservations-from-platforms/:page/:hotelId/:belongsTo",
 	listOfAllReservationSummary
 );
 

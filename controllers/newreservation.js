@@ -225,6 +225,7 @@ exports.listOfAllReservationSummary = (req, res) => {
 	const hrId = process.env.HR_ID;
 	const hotelId = req.params.hotelId;
 	const belongsTo = req.params.belongsTo;
+	const page = req.params.page;
 
 	// Calculate the date 30 days prior to today
 	const thirtyDaysAgo = new Date();
@@ -236,8 +237,8 @@ exports.listOfAllReservationSummary = (req, res) => {
 		hr_id: hrId,
 		undelivered: "false", // Assuming 'false' will include all reservations
 		modified: "false", // Assuming 'false' will not filter out unmodified reservations
-		per_page: 100, // Example: Adjust as needed based on the maximum allowed by the
-		from_date: fromDate, // Fetch reservations created after this date
+		per_page: 15, // Example: Adjust as needed based on the maximum allowed by the
+		page: page,
 		// booked: "true", // Fetch only new reservations
 		// ... other query params
 	}).toString();
