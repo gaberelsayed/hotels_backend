@@ -202,19 +202,25 @@ exports.getListPreReservation = async (req, res) => {
 			{
 				$addFields: {
 					bookedOnDate: {
-						$dateFromString: {
-							dateString: "$bookedOn",
-							format: "%Y-%m-%dT%H:%M:%S%z", // Updated format to match the datetime string
+						$cond: {
+							if: { $eq: ["$bookedOn", ""] }, // Check if bookedOn is blank
+							then: new Date("9999-12-31T23:59:59Z"), // Use a future date for sorting
+							else: {
+								$dateFromString: {
+									dateString: "$bookedOn",
+									format: "%Y-%m-%dT%H:%M:%S%z", // Updated format to match the datetime string
+								},
+							},
 						},
 					},
 				},
 			},
 			{
 				$match: {
-					bookedOnDate: {
-						$gte: ninetyDaysAgo,
-						$lte: today,
-					},
+					$or: [
+						{ bookedOnDate: { $gte: ninetyDaysAgo, $lte: today } },
+						{ bookedOn: "" }, // Include documents where bookedOn is blank
+					],
 				},
 			},
 			{
