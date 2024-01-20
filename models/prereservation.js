@@ -87,6 +87,12 @@ const prereservationSchema = new mongoose.Schema(
 			default: "",
 		},
 
+		bookedOn: {
+			type: String, //BookedOn
+			trim: true,
+			default: "",
+		},
+
 		belongsTo: { type: ObjectId, ref: "User" }, //This will be sent from the frontend
 		hotelId: { type: ObjectId, ref: "HotelDetails" }, //This will be sent from the frontend
 

@@ -207,6 +207,7 @@ function mapHotelRunnerResponseToSchema(apiResponse) {
 		payment_status: reservation.payment,
 		overallBookingStatus: reservation.state,
 		payment: reservation.payment,
+		bookedOn: reservation.completed_at,
 	};
 
 	return mappedReservation;

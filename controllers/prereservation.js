@@ -192,17 +192,35 @@ exports.updatePreReservationStatus = async (req, res) => {
 exports.getListPreReservation = async (req, res) => {
 	try {
 		const today = new Date();
-		const thirtyDaysAgo = new Date();
-		thirtyDaysAgo.setDate(today.getDate() - 30);
-		const ninetyDaysLater = new Date();
-		ninetyDaysLater.setDate(today.getDate() + 90);
+		today.setHours(0, 0, 0, 0); // Set time to start of the day for accurate comparison
+		const ninetyDaysAgo = new Date();
+		ninetyDaysAgo.setDate(today.getDate() - 60);
 
-		const preReservations = await Pre_Reservation.find({
-			createdAt: {
-				$gte: thirtyDaysAgo,
-				$lte: ninetyDaysLater,
+		const preReservations = await Pre_Reservation.aggregate([
+			{
+				$addFields: {
+					bookedOnDate: {
+						$dateFromString: {
+							dateString: "$bookedOn",
+							format: "%Y-%m-%dT%H:%M:%S%z", // Updated format to match the datetime string
+						},
+					},
+				},
 			},
-		});
+			{
+				$match: {
+					bookedOnDate: {
+						$gte: ninetyDaysAgo,
+						$lte: today,
+					},
+				},
+			},
+			{
+				$sort: {
+					bookedOnDate: -1, // Sort by bookedOnDate in descending order
+				},
+			},
+		]);
 
 		res.json(preReservations);
 	} catch (error) {
