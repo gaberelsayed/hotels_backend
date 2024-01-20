@@ -192,7 +192,9 @@ exports.updatePreReservationStatus = async (req, res) => {
 exports.getListPreReservation = async (req, res) => {
 	try {
 		const today = new Date();
+		today.setDate(today.getDate() + 1); // Set 'today' to tomorrow's date
 		today.setHours(0, 0, 0, 0); // Set time to start of the day for accurate comparison
+
 		const ninetyDaysAgo = new Date();
 		ninetyDaysAgo.setDate(today.getDate() - 60);
 
