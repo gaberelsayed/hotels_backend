@@ -23,6 +23,7 @@ const {
 	getListPreReservation,
 	totalRecordsPreReservation,
 	reservationSearchAllMatches,
+	removeDuplicates_ConfirmationNumber,
 } = require("../controllers/prereservation");
 
 router.get("/pre-reservation-single/:prereservationId", read);
@@ -44,6 +45,7 @@ router.put(
 );
 
 router.get("/pre-reservation/:accountId", list);
+router.get("/remove-duplicates", removeDuplicates_ConfirmationNumber);
 router.get("/pre-reservation2/:accountId", list2);
 router.get("/search/:searchQuery", reservationSearch);
 router.get("/search-all-matches/:searchQuery", reservationSearchAllMatches);

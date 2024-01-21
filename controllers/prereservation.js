@@ -173,11 +173,19 @@ exports.reservationSearchAllMatches = async (req, res) => {
 	try {
 		const { searchQuery } = req.params;
 
-		// Create a regex pattern to match the search query in a case-insensitive manner
+		// RegExp pattern for fields where partial match is acceptable
 		const searchPattern = new RegExp(searchQuery, "i");
 
-		// Query to search across various fields
-		const query = {
+		// Query for fields where an exact match is required
+		const exactMatchQuery = {
+			$or: [
+				{ confirmation_number: searchQuery },
+				{ provider_number: searchQuery },
+			],
+		};
+
+		// Query for fields where a RegExp search is appropriate
+		const regexMatchQuery = {
 			$or: [
 				{ "customer_details.name": searchPattern },
 				{ "customer_details.phone": searchPattern },
@@ -185,9 +193,12 @@ exports.reservationSearchAllMatches = async (req, res) => {
 				{ "customer_details.passport": searchPattern },
 				{ "customer_details.passportExpiry": searchPattern },
 				{ "customer_details.nationality": searchPattern },
-				{ confirmation_number: searchPattern },
-				{ provider_number: searchPattern },
 			],
+		};
+
+		// Combined query to fetch all matching documents
+		const query = {
+			$or: [exactMatchQuery, regexMatchQuery],
 		};
 
 		// Fetch all matching documents
@@ -201,7 +212,7 @@ exports.reservationSearchAllMatches = async (req, res) => {
 
 		res.json(reservations);
 	} catch (error) {
-		console.error("Error in reservationSearch:", error);
+		console.error("Error in reservationSearchAllMatches:", error);
 		res.status(500).send("Server error");
 	}
 };
@@ -319,5 +330,40 @@ exports.totalRecordsPreReservation = async (req, res) => {
 	} catch (error) {
 		console.error("Error fetching total records:", error);
 		res.status(500).send("Server error");
+	}
+};
+
+exports.removeDuplicates_ConfirmationNumber = async (req, res) => {
+	try {
+		// Step 1: Group by confirmation_number and sort by createdAt in descending order.
+		const groupedReservations = await mongoose
+			.model("Pre_Reservation")
+			.aggregate([
+				{
+					$sort: { createdAt: -1 }, // Sort by createdAt in descending order
+				},
+				{
+					$group: {
+						_id: "$confirmation_number", // Group by confirmation_number
+						docId: { $first: "$_id" }, // Keep the ID of the first document (newest) for each group
+					},
+				},
+			]);
+
+		// Step 2: Extract the IDs of the newest documents.
+		const idsToKeep = groupedReservations.map((group) => group.docId);
+
+		// Step 3: Remove all documents that are not in the idsToKeep array.
+		await mongoose.model("Pre_Reservation").deleteMany({
+			_id: { $nin: idsToKeep },
+		});
+
+		// Send the response back
+		res.json({
+			message: "Duplicates removed successfully",
+		});
+	} catch (error) {
+		console.error("Error in removeDuplicates_ConfirmationNumber:", error);
+		res.status(500).send("Internal Server Error");
 	}
 };
