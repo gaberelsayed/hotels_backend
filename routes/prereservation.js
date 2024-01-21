@@ -21,6 +21,8 @@ const {
 	reservationSearch,
 	updatePreReservationStatus,
 	getListPreReservation,
+	totalRecordsPreReservation,
+	reservationSearchAllMatches,
 } = require("../controllers/prereservation");
 
 router.get("/pre-reservation-single/:prereservationId", read);
@@ -44,9 +46,14 @@ router.put(
 router.get("/pre-reservation/:accountId", list);
 router.get("/pre-reservation2/:accountId", list2);
 router.get("/search/:searchQuery", reservationSearch);
+router.get("/search-all-matches/:searchQuery", reservationSearchAllMatches);
 router.put("/update/:neededId", updatePreReservationStatus);
 router.get("/pre-reservation-admin", isAuth, isAdmin, listForAdmin);
-router.get("/list-prereservation", getListPreReservation);
+router.get("/get-total-records/:hotelId", totalRecordsPreReservation);
+router.get(
+	"/list-prereservation/:page/:records/:filters/:hotelId",
+	getListPreReservation
+);
 
 router.param("userId", userById);
 router.param("prereservationId", preReservationById);

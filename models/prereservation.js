@@ -50,7 +50,7 @@ const prereservationSchema = new mongoose.Schema(
 		overallBookingStatus: {
 			type: String, //Leave Default
 			trim: true,
-			default: "Open",
+			default: "Confirmed",
 		},
 
 		total_amount: {

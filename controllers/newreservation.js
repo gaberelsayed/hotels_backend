@@ -15,17 +15,30 @@ exports.newReservationById = (req, res, next, id) => {
 	});
 };
 
-exports.create = (req, res) => {
+exports.create = async (req, res) => {
 	const new_reservation = new New_Reservation(req.body);
-	new_reservation.save((err, data) => {
-		if (err) {
-			console.log(err, "err");
-			return res.status(400).json({
-				error: "Cannot Create new_reservation",
-			});
+
+	try {
+		// Save the new reservation
+		const savedReservation = await new_reservation.save();
+
+		// Check for a matching document in Pre_Reservation
+		const preReservation = await PreReservation.findOne({
+			confirmation_number: req.body.confirmation_number,
+		});
+
+		// If a matching document is found, update it
+		if (preReservation) {
+			preReservation.overallBookingStatus = "InHouse";
+			preReservation.payment_status = req.body.payment_status;
+			await preReservation.save();
 		}
-		res.json({ data });
-	});
+
+		res.json({ data: savedReservation });
+	} catch (err) {
+		console.error("Error in create:", err);
+		return res.status(400).json({ error: "Cannot Create new_reservation" });
+	}
 };
 
 exports.read = (req, res) => {
@@ -63,7 +76,7 @@ exports.list = (req, res) => {
 	thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
 	New_Reservation.find({
-		belongsTo: userId,
+		hotelId: userId,
 		start_date: {
 			$gte: thirtyDaysAgo, // Greater than or equal to 30 days ago
 		},
@@ -87,7 +100,7 @@ exports.list2 = (req, res) => {
 	thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
 	New_Reservation.find({
-		belongsTo: userId,
+		hotelId: userId,
 		start_date: {
 			$gte: thirtyDaysAgo, // Greater than or equal to 30 days ago
 		},
@@ -221,60 +234,44 @@ function calculateDaysBetweenDates(startDate, endDate) {
 }
 
 // API call and MongoDB interaction
-exports.listOfAllReservationSummary = (req, res) => {
+exports.listOfAllReservationSummary = async (req, res) => {
 	const token = process.env.HOTEL_RUNNER_TOKEN;
 	const hrId = process.env.HR_ID;
 	const hotelId = req.params.hotelId;
 	const belongsTo = req.params.belongsTo;
-	const page = req.params.page;
+	let currentPage = req.params.page;
 
-	// Calculate the date 30 days prior to today
-	const thirtyDaysAgo = new Date();
-	thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-	const fromDate = thirtyDaysAgo.toISOString().split("T")[0];
+	try {
+		let allProcessedReservations = [];
 
-	const queryParams = new URLSearchParams({
-		token: token,
-		hr_id: hrId,
-		undelivered: "false", // Assuming 'false' will include all reservations
-		modified: "false", // Assuming 'false' will not filter out unmodified reservations
-		per_page: 15, // Example: Adjust as needed based on the maximum allowed by the
-		page: page,
-		// booked: "true", // Fetch only new reservations
-		// ... other query params
-	}).toString();
+		// Loop through four pages
+		for (let i = 0; i < 5; i++) {
+			const queryParams = new URLSearchParams({
+				token: token,
+				hr_id: hrId,
+				undelivered: "false",
+				modified: "false",
+				per_page: 15,
+				page: currentPage - i,
+			}).toString();
 
-	// const queryParams = new URLSearchParams({
-	// 	token: token,
-	// 	hr_id: hrId,
-	// 	undelivered: "false", // Assuming 'false' will include all reservations
-	// 	modified: "false", // Assuming 'false' will not filter out unmodified reservations
-	// 	page: 23, // Use the page number from the route parameter
-	// 	per_page: 15, // Use the per_page limit from the route parameter
-	// }).toString();
+			const url = `https://app.hotelrunner.com/api/v2/apps/reservations?${queryParams}`;
 
-	const url = `https://app.hotelrunner.com/api/v2/apps/reservations?${queryParams}`;
-
-	fetch(url)
-		.then((apiResponse) => {
+			const apiResponse = await fetch(url);
 			if (!apiResponse.ok) {
 				throw new Error(`HTTP error! status: ${apiResponse.status}`);
 			}
-			return apiResponse.json();
-		})
-		.then((data) => {
-			// Check if reservations array is present and not empty
+			const data = await apiResponse.json();
+
 			if (!data.reservations || data.reservations.length === 0) {
-				throw new Error("No reservations found");
+				continue; // Skip to next iteration if no reservations
 			}
 
-			// Process each reservation
 			const reservationPromises = data.reservations.map((reservation) => {
 				const mappedReservation = mapHotelRunnerResponseToSchema(reservation);
 				mappedReservation.belongsTo = belongsTo;
 				mappedReservation.hotelId = hotelId;
 
-				// Check if a reservation with the same confirmation_number or provider_number exists
 				return PreReservation.findOne({
 					$or: [
 						{ confirmation_number: mappedReservation.confirmation_number },
@@ -282,24 +279,27 @@ exports.listOfAllReservationSummary = (req, res) => {
 					],
 				}).then((existingReservation) => {
 					if (!existingReservation) {
-						// If no existing reservation, create a new one
 						return new PreReservation(mappedReservation).save();
 					}
 				});
 			});
 
-			// Wait for all reservations to be processed
-			return Promise.all(reservationPromises);
-		})
-		.then(() => {
-			res.json({ message: "Reservations processed successfully" });
-		})
-		.catch((error) => {
-			console.error("API request error:", error);
-			res
-				.status(500)
-				.json({ error: "Error fetching and processing reservations" });
+			const processedReservations = await Promise.all(reservationPromises);
+			allProcessedReservations = allProcessedReservations.concat(
+				processedReservations.filter(Boolean)
+			);
+		}
+
+		res.json({
+			message: "Reservations processed successfully",
+			processedReservations: allProcessedReservations,
 		});
+	} catch (error) {
+		console.error("API request error:", error);
+		res
+			.status(500)
+			.json({ error: "Error fetching and processing reservations" });
+	}
 };
 
 exports.listOfAllReservationSummaryBasic = (req, res) => {

@@ -1,5 +1,6 @@
 const Pre_Reservation = require("../models/prereservation");
 const mongoose = require("mongoose");
+const ObjectId = mongoose.Types.ObjectId;
 
 exports.preReservationById = (req, res, next, id) => {
 	Pre_Reservation.findById(id).exec((err, pre_reservation) => {
@@ -168,6 +169,43 @@ exports.reservationSearch = async (req, res) => {
 	}
 };
 
+exports.reservationSearchAllMatches = async (req, res) => {
+	try {
+		const { searchQuery } = req.params;
+
+		// Create a regex pattern to match the search query in a case-insensitive manner
+		const searchPattern = new RegExp(searchQuery, "i");
+
+		// Query to search across various fields
+		const query = {
+			$or: [
+				{ "customer_details.name": searchPattern },
+				{ "customer_details.phone": searchPattern },
+				{ "customer_details.email": searchPattern },
+				{ "customer_details.passport": searchPattern },
+				{ "customer_details.passportExpiry": searchPattern },
+				{ "customer_details.nationality": searchPattern },
+				{ confirmation_number: searchPattern },
+				{ provider_number: searchPattern },
+			],
+		};
+
+		// Fetch all matching documents
+		const reservations = await Pre_Reservation.find(query);
+
+		if (reservations.length === 0) {
+			return res.status(404).json({
+				error: "No reservations found matching the search criteria.",
+			});
+		}
+
+		res.json(reservations);
+	} catch (error) {
+		console.error("Error in reservationSearch:", error);
+		res.status(500).send("Server error");
+	}
+};
+
 exports.updatePreReservationStatus = async (req, res) => {
 	try {
 		const { neededId } = req.params;
@@ -189,50 +227,97 @@ exports.updatePreReservationStatus = async (req, res) => {
 	}
 };
 
+function getSaudiDate() {
+	const saudiTimezone = "Asia/Riyadh";
+	return new Date()
+		.toLocaleString("sv-SE", { timeZone: saudiTimezone })
+		.split(" ")[0]; // Returns YYYY-MM-DD
+}
+
 exports.getListPreReservation = async (req, res) => {
 	try {
-		const today = new Date();
-		today.setDate(today.getDate() + 1); // Set 'today' to tomorrow's date
-		today.setHours(0, 0, 0, 0); // Set time to start of the day for accurate comparison
+		const page = parseInt(req.params.page);
+		const recordsPerPage = parseInt(req.params.records);
+		const hotelId = req.params.hotelId; // Get hotelId from the route parameters
 
-		const ninetyDaysAgo = new Date();
-		ninetyDaysAgo.setDate(today.getDate() - 60);
+		if (isNaN(page) || isNaN(recordsPerPage) || !ObjectId.isValid(hotelId)) {
+			return res.status(400).send("Invalid parameters");
+		}
 
-		const preReservations = await Pre_Reservation.aggregate([
-			{
-				$addFields: {
-					bookedOnDate: {
-						$cond: {
-							if: { $eq: ["$bookedOn", ""] }, // Check if bookedOn is blank
-							then: new Date("9999-12-31T23:59:59Z"), // Use a future date for sorting
-							else: {
-								$dateFromString: {
-									dateString: "$bookedOn",
-									format: "%Y-%m-%dT%H:%M:%S%z", // Updated format to match the datetime string
-								},
-							},
-						},
-					},
-				},
-			},
-			{
-				$match: {
-					$or: [
-						{ bookedOnDate: { $gte: ninetyDaysAgo, $lte: today } },
-						{ bookedOn: "" }, // Include documents where bookedOn is blank
-					],
-				},
-			},
-			{
-				$sort: {
-					bookedOnDate: -1, // Sort by bookedOnDate in descending order
-				},
-			},
-		]);
+		const filters = req.params.filters;
+		const parsedFilters = JSON.parse(filters);
 
+		const saudiDate = getSaudiDate(); // Assuming this function returns the date in YYYY-MM-DD format
+
+		// Convert saudiDate to the start and end of the day
+		const startOfSaudiDay = new Date(`${saudiDate}T00:00:00+03:00`); // Start of the day in Saudi time
+		const endOfSaudiDay = new Date(`${saudiDate}T23:59:59+03:00`); // End of the day in Saudi time
+
+		let dynamicFilter = { hotelId: ObjectId(hotelId) };
+
+		// const testing = await Pre_Reservation.find(
+		// 	(dynamicFilter.start_date = {
+		// 		$gte: startOfSaudiDay,
+		// 		$lte: endOfSaudiDay,
+		// 	})
+		// );
+
+		// console.log(testing, "testing");
+
+		switch (parsedFilters.selectedFilter) {
+			case "Today's New Reservations":
+				dynamicFilter.bookedOn = { $gte: startOfSaudiDay, $lte: endOfSaudiDay };
+				break;
+			case "Cancelations":
+				dynamicFilter.overallBookingStatus = { $eq: "canceled" };
+				break;
+			case "Today's Arrivals":
+				dynamicFilter.start_date = {
+					$gte: startOfSaudiDay,
+					$lte: endOfSaudiDay,
+				};
+				break;
+			case "Today's Departures":
+				dynamicFilter.end_date = { $gte: startOfSaudiDay, $lte: endOfSaudiDay };
+				break;
+			case "Incomplete reservations":
+				dynamicFilter.overallBookingStatus = { $nin: ["closed", "canceled"] };
+				break;
+			case "In House":
+				dynamicFilter.overallBookingStatus = { $eq: "InHouse" };
+				break;
+			// other cases...
+		}
+
+		const pipeline = [
+			{ $match: dynamicFilter },
+			{ $sort: { bookedOn: -1 } },
+			{ $skip: (page - 1) * recordsPerPage },
+			{ $limit: recordsPerPage },
+		];
+
+		const preReservations = await Pre_Reservation.aggregate(pipeline);
 		res.json(preReservations);
 	} catch (error) {
 		console.error(error);
 		res.status(500).send("Server error: " + error.message);
+	}
+};
+
+exports.totalRecordsPreReservation = async (req, res) => {
+	try {
+		const hotelId = req.params.hotelId; // Get hotelId from the route parameters
+
+		if (!ObjectId.isValid(hotelId)) {
+			return res.status(400).send("Invalid hotelId parameter");
+		}
+
+		const total = await Pre_Reservation.countDocuments({
+			hotelId: ObjectId(hotelId),
+		});
+		res.json({ total }); // Send back the total count
+	} catch (error) {
+		console.error("Error fetching total records:", error);
+		res.status(500).send("Server error");
 	}
 };
