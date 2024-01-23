@@ -64,6 +64,10 @@ const reservationsSchema = new mongoose.Schema(
 			type: Number,
 			default: 1,
 		},
+		pickedRoomsPricing: {
+			type: Array,
+			default: [],
+		},
 		total_rooms: {
 			type: Number,
 			default: 1,
