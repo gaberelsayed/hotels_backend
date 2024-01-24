@@ -23,6 +23,7 @@ const {
 	getDistinctRoomTypes,
 	getDistinctRoomTypesFromReservations,
 	getDistinctHotelRunnerRooms,
+	reservedRoomsSummary,
 } = require("../controllers/rooms");
 
 router.get("/room-single/:roomId", read);
@@ -43,8 +44,6 @@ router.put(
 	update
 );
 
-router.put("/room-inventory-update", updateRoomInventory);
-
 router.get("/room/:accountId", list);
 router.get("/distinct", getDistinctRoomTypes);
 router.get("/distinct-hotel-runner", getDistinctHotelRunnerRooms);
@@ -56,6 +55,11 @@ router.get("/room-list", hotelRunnerRoomList);
 
 router.get("/room/:checkin/:checkout", listOfRoomsSummary);
 router.get("/room-admin", isAuth, isAdmin, listForAdmin);
+router.put("/room-inventory-update", updateRoomInventory);
+router.get(
+	"/room-inventory-reserved/:startdate/:enddate",
+	reservedRoomsSummary
+);
 
 router.param("userId", userById);
 router.param("roomId", roomById);

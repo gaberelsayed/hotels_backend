@@ -2,6 +2,7 @@ const Reservations = require("../models/reservations");
 const mongoose = require("mongoose");
 const ObjectId = mongoose.Types.ObjectId;
 const fetch = require("node-fetch");
+const Rooms = require("../models/rooms");
 
 exports.reservationById = (req, res, next, id) => {
 	Reservations.findById(id).exec((err, reservations) => {
@@ -506,17 +507,27 @@ exports.hotelRunnerPaginatedList = (req, res) => {
 
 exports.reservationsList = (req, res) => {
 	const userId = mongoose.Types.ObjectId(req.params.accountId);
-	const today = new Date();
-	const thirtyDaysAgo = new Date(today);
-	thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+	const startDate = new Date(req.params.startdate);
+	startDate.setHours(0, 0, 0, 0); // Set time to the start of the day
 
-	Reservations.find({
+	const endDate = new Date(req.params.enddate);
+	endDate.setHours(23, 59, 59, 999); // Set time to the end of the day
+
+	let queryConditions = {
 		hotelId: userId,
-		checkin_date: {
-			$gte: thirtyDaysAgo, // Greater than or equal to 30 days ago
+		checkin_date: { $gte: startDate },
+		checkout_date: { $lte: endDate },
+		$where: function () {
+			return (
+				this.roomId.length > 0 &&
+				this.roomId.every((element) => element != null)
+			);
 		},
-	})
+	};
+
+	Reservations.find(queryConditions)
 		.populate("belongsTo")
+		.populate("roomId")
 		.exec((err, data) => {
 			if (err) {
 				console.log(err, "err");

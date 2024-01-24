@@ -68,7 +68,7 @@ router.get(
 	hotelRunnerPaginatedList
 );
 
-router.get("/reservations/:accountId", reservationsList);
+router.get("/reservations/:startdate/:enddate/:accountId", reservationsList);
 router.get("/reservations2/:accountId", reservationsList2);
 router.put("/reservation-update/:reservationId", updateReservation);
 
