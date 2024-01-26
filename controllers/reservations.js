@@ -349,7 +349,9 @@ exports.getListOfReservations = async (req, res) => {
 				dynamicFilter.booked_at = { $gte: startDate, $lte: endDate };
 				break;
 			case "Cancelations":
-				dynamicFilter.reservation_status = { $eq: "canceled" };
+				dynamicFilter.reservation_status = {
+					$in: ["cancelled_by_guest", "canceled", "Cancelled", "cancelled"],
+				};
 				break;
 			case "Today's Arrivals":
 				dynamicFilter.checkin_date = { $gte: startDate, $lte: endDate };
@@ -628,7 +630,7 @@ exports.agodaDataDump = async (req, res) => {
 			if (existingConfirmationNumbers.includes(itemNumber)) {
 				console.log(`Duplicate found: ${itemNumber}`);
 			} else {
-				console.log(`New entry: ${itemNumber}`);
+				// console.log(`New entry: ${itemNumber}`);
 			}
 		});
 
@@ -733,7 +735,7 @@ exports.expediaDataDump = async (req, res) => {
 			if (existingConfirmationNumbers.includes(confirmationNumber)) {
 				console.log(`Duplicate found: ${confirmationNumber}`);
 			} else {
-				console.log(`New entry: ${confirmationNumber}`);
+				// console.log(`New entry: ${confirmationNumber}`);
 			}
 		});
 
@@ -829,7 +831,7 @@ exports.bookingDataDump = async (req, res) => {
 			if (existingConfirmationNumbers.includes(itemNumber)) {
 				console.log(`Duplicate found: ${itemNumber}`);
 			} else {
-				console.log(`New entry: ${itemNumber}`);
+				// console.log(`New entry: ${itemNumber}`);
 			}
 		});
 
@@ -856,6 +858,10 @@ exports.bookingDataDump = async (req, res) => {
 					group[0]["Check-out"]
 				);
 				const pickedRoomsType = group.map((item) => {
+					const price = parsePrice(item.Price);
+
+					const chosenPrice = daysOfResidence > 0 ? price / daysOfResidence : 0;
+
 					const peoplePerRoom = item.People / item.Rooms;
 					let roomType = "";
 					if (peoplePerRoom <= 1) {
@@ -871,7 +877,7 @@ exports.bookingDataDump = async (req, res) => {
 					}
 					return {
 						room_type: roomType,
-						chosenPrice: item.Price / daysOfResidence || 0,
+						chosenPrice: chosenPrice,
 						count: 1, // Assuming each record is for one room
 					};
 				});
