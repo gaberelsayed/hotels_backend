@@ -1,7 +1,5 @@
 const Rooms = require("../models/rooms");
 const mongoose = require("mongoose");
-const New_Reservation = mongoose.model("New_Reservation");
-const Pre_Reservation = mongoose.model("Pre_Reservation");
 const fetch = require("node-fetch");
 const Reservations = require("../models/reservations");
 

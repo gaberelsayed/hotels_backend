@@ -6,38 +6,38 @@ const { ObjectId } = mongoose.Schema;
 const reservationsSchema = new mongoose.Schema(
 	{
 		reservation_id: {
-			type: String,
+			type: String, //Could be left blank
 			trim: true,
 			lowercase: true,
 			default: "",
 		},
 		hr_number: {
-			type: String,
+			type: String, //Could be left blank
 			trim: true,
 			lowercase: true,
 			default: "",
 		},
 
 		confirmation_number: {
-			type: String,
+			type: String, //Exist in the file
 			trim: true,
 			lowercase: true,
 			required: true,
 		},
 		pms_number: {
-			type: String,
+			type: String, //could be left blank
 			trim: true,
 			lowercase: true,
 			default: "",
 		},
 		booking_source: {
-			type: String,
+			type: String, //Will be added but based on the file
 			trim: true,
 			lowercase: true,
 			default: "",
 		},
 		customer_details: {
-			type: Object,
+			type: Object, //This is based on the mapping you did in the 3 files, whatever doesn't exist, then leave blank
 			trim: true,
 			default: {
 				name: "", // firstname + lastname
@@ -49,23 +49,23 @@ const reservationsSchema = new mongoose.Schema(
 			},
 		},
 		state: {
-			type: String,
+			type: String, // could be left as default "confirmed"
 			trim: true,
 			lowercase: true,
 			default: "confirmed",
 		},
 		reservation_status: {
-			type: String,
+			type: String, // is the status
 			trim: true,
 			lowercase: true,
 			default: "confirmed",
 		},
 		total_guests: {
-			type: Number,
+			type: Number, //use the mapping
 			default: 1,
 		},
 		pickedRoomsPricing: {
-			type: Array,
+			type: Array, //This will be discussed later
 			default: [],
 		},
 		total_rooms: {
@@ -74,27 +74,27 @@ const reservationsSchema = new mongoose.Schema(
 		},
 
 		cancel_reason: {
-			type: String,
+			type: String, //if exist in any of the headers I gave you then add it
 			trim: true,
 			lowercase: true,
 			default: "",
 		},
 		booked_at: {
-			type: Date,
+			type: Date, //In the file in the 3 file in the headers
 			trim: true,
 			lowercase: true,
 			default: new Date(),
 		},
 
 		inhouse_date: {
-			type: Date,
+			type: Date, //This could be left blank
 			trim: true,
 			lowercase: true,
 			default: "",
 		},
 
 		sub_total: {
-			type: Number,
+			type: Number, //Those can be added based on the file headers I gave you
 			trim: true,
 			lowercase: true,
 			default: 0,
@@ -113,13 +113,13 @@ const reservationsSchema = new mongoose.Schema(
 			default: 0,
 		},
 		total_amount: {
-			type: Number,
+			type: Number, // This is important in which it should reflect the total amount the guest should pay
 			trim: true,
 			lowercase: true,
 			default: 0,
 		},
 		currency: {
-			type: String,
+			type: String, //Blank
 			trim: true,
 			lowercase: true,
 			default: "SAR",
@@ -133,37 +133,42 @@ const reservationsSchema = new mongoose.Schema(
 			default: "",
 		},
 		days_of_residence: {
-			type: Number,
+			type: Number, //It should be calculated the difference between checkout and checkin
 			default: 0,
 		},
 		comment: {
-			type: String,
+			type: String, //If there is a comment, then add it
 			trim: true,
 			lowercase: true,
 			default: "",
 		},
 		payment: {
-			type: String,
+			type: String, //PaymentModel, Payment type,
 			trim: true,
 			lowercase: true,
 			default: "",
 		},
 		payment_details: {
-			type: Object,
+			type: Object, //Could be left blank for now
 			trim: true,
 			lowercase: true,
 		},
 		paid_amount: {
-			type: Number,
+			type: Number, //Could be left as default
 			trim: true,
 			lowercase: true,
+			default: 0,
+		},
+
+		commission: {
+			type: Number,
 			default: 0,
 		},
 
 		payments: {
 			type: Object,
 			trim: true,
-			lowercase: true,
+			lowercase: true, //Could be left
 			default: {
 				state: "checkout",
 				amount: "5329.06",
@@ -179,6 +184,7 @@ const reservationsSchema = new mongoose.Schema(
 			},
 		},
 		pickedRoomsType: {
+			//This is important but we will discuss later
 			type: Array, //Here I only need you to look at the rooms array in the hotel runner object I gave and give me the array with the object below
 			default: [
 				{
@@ -188,9 +194,9 @@ const reservationsSchema = new mongoose.Schema(
 				},
 			],
 		},
-		roomId: [{ type: ObjectId, ref: "Rooms", default: null }],
-		belongsTo: { type: ObjectId, ref: "User" },
-		hotelId: { type: ObjectId, ref: "HotelDetails" },
+		roomId: [{ type: ObjectId, ref: "Rooms", default: null }], //This could be left
+		belongsTo: { type: ObjectId, ref: "User" }, //this will be taken care of later
+		hotelId: { type: ObjectId, ref: "HotelDetails" }, //this will be taken care of later
 	},
 	{ timestamps: true }
 );

@@ -4,6 +4,8 @@ const express = require("express");
 const router = express.Router();
 const { requireSignin, isAuth, isHotelOwner } = require("../controllers/auth");
 const { userById } = require("../controllers/user");
+const multer = require("multer");
+const upload = multer({ dest: "uploads/" });
 
 const {
 	create,
@@ -20,6 +22,9 @@ const {
 	reservationsList,
 	reservationsList2,
 	updateReservation,
+	agodaDataDump,
+	expediaDataDump,
+	bookingDataDump,
 } = require("../controllers/reservations");
 
 router.post(
@@ -69,6 +74,23 @@ router.get(
 );
 
 router.get("/reservations/:startdate/:enddate/:accountId", reservationsList);
+
+router.post(
+	"/reservations/agoda-data-dump/:accountId",
+	upload.single("file"),
+	agodaDataDump
+);
+router.post(
+	"/reservations/expedia-data-dump/:accountId",
+	upload.single("file"),
+	expediaDataDump
+);
+router.post(
+	"/reservations/booking-data-dump/:accountId",
+	upload.single("file"),
+	bookingDataDump
+);
+
 router.get("/reservations2/:accountId", reservationsList2);
 router.put("/reservation-update/:reservationId", updateReservation);
 

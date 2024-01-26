@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const ObjectId = mongoose.Types.ObjectId;
 const fetch = require("node-fetch");
 const Rooms = require("../models/rooms");
+const xlsx = require("xlsx");
 
 exports.reservationById = (req, res, next, id) => {
 	Reservations.findById(id).exec((err, reservations) => {
@@ -593,4 +594,327 @@ exports.updateReservation = (req, res) => {
 			res.json(updatedReservation);
 		}
 	);
+};
+
+// Helper function to calculate days of residence
+function calculateDaysOfResidence(startDate, endDate) {
+	const start = new Date(startDate);
+	const end = new Date(endDate);
+	return (end - start) / (1000 * 60 * 60 * 24); // Difference in days
+}
+
+exports.agodaDataDump = async (req, res) => {
+	try {
+		const accountId = req.params.accountId;
+		const filePath = req.file.path; // The path to the uploaded file
+		const workbook = xlsx.readFile(filePath);
+		const sheetName = workbook.SheetNames[0];
+		const sheet = workbook.Sheets[sheetName];
+		const data = xlsx.utils.sheet_to_json(sheet); // Convert the sheet data to JSON
+
+		// Filter out data that has confirmation numbers already in the database
+		const existingConfirmationNumbers = await Reservations.find({
+			booking_source: "agoda",
+			hotelId: accountId,
+		}).distinct("confirmation_number");
+
+		const newRecords = data.filter((item) => {
+			const itemNumber = item.BookingIDExternal_reference_ID.toString().trim();
+			return !existingConfirmationNumbers.includes(itemNumber);
+		});
+
+		newRecords.forEach((item) => {
+			const itemNumber = item.BookingIDExternal_reference_ID.toString().trim();
+			if (existingConfirmationNumbers.includes(itemNumber)) {
+				console.log(`Duplicate found: ${itemNumber}`);
+			} else {
+				console.log(`New entry: ${itemNumber}`);
+			}
+		});
+
+		// Group data by confirmation_number to handle potential duplicate entries
+		const groupedByConfirmation = newRecords.reduce((acc, item) => {
+			const key = item.BookingIDExternal_reference_ID;
+			if (!acc[key]) {
+				acc[key] = [];
+			}
+			acc[key].push(item);
+			return acc;
+		}, {});
+
+		// Transform grouped data into reservations
+		const transformedData = Object.values(groupedByConfirmation).map(
+			(group) => {
+				// Calculate total price per room type per day
+				const daysOfResidence = calculateDaysOfResidence(
+					group[0].StayDateFrom,
+					group[0].StayDateTo
+				);
+				const pickedRoomsType = group.map((item) => ({
+					room_type: item.RoomType,
+					chosenPrice: item.Total_inclusive_rate / daysOfResidence || 0,
+					count: 1, // Assuming each record is for one room
+				}));
+
+				// Pick the first item in the group to represent the common fields
+				const firstItem = group[0];
+
+				return {
+					confirmation_number: firstItem.BookingIDExternal_reference_ID,
+					booking_source: "agoda",
+					customer_details: {
+						name: firstItem.Customer_Name, // Concatenated first name and last name if available
+						nationality: firstItem.Customer_Nationality,
+						phone: firstItem.Customer_Phone || "",
+						email: firstItem.Customer_Email || "",
+					},
+					state: "confirmed",
+					reservation_status: firstItem.Status.toLowerCase(),
+					total_guests: firstItem.No_of_adult + (firstItem.No_of_children || 0),
+					total_rooms: group.length, // The number of items in the group
+					cancel_reason: firstItem.CancellationPolicyDescription || "",
+					booked_at: new Date(firstItem.BookedDate),
+					sub_total: firstItem.Total_inclusive_rate,
+					total_amount: firstItem.Total_inclusive_rate,
+					currency: firstItem.Currency,
+					checkin_date: new Date(firstItem.StayDateFrom),
+					checkout_date: new Date(firstItem.StayDateTo),
+					days_of_residence: daysOfResidence,
+					comment: firstItem.Special_Request || "",
+					commision: firstItem.Commission, // Note the misspelling of 'commission' here
+					payment: firstItem.PaymentModel.toLowerCase(),
+					pickedRoomsType,
+					hotelId: accountId,
+				};
+			}
+		);
+
+		if (transformedData.length > 0) {
+			await Reservations.insertMany(transformedData);
+			res.status(200).json({ message: "Data imported successfully" });
+		} else {
+			res.status(200).json({ message: "No new data to import" });
+		}
+	} catch (error) {
+		console.error("Error in agodaDataDump:", error);
+		res.status(500).json({ error: "Internal Server Error" });
+	}
+};
+
+exports.expediaDataDump = async (req, res) => {
+	try {
+		const accountId = req.params.accountId;
+		const filePath = req.file.path; // The path to the uploaded file
+		const workbook = xlsx.readFile(filePath);
+		const sheetName = workbook.SheetNames[0];
+		const sheet = workbook.Sheets[sheetName];
+		const data = xlsx.utils.sheet_to_json(sheet); // Convert the sheet data to JSON
+
+		console.log(req.body, "req.body");
+		console.log(req.file, "req.file");
+
+		// Filter out data that has confirmation numbers already in the database
+		const existingConfirmationNumbers = await Reservations.find({
+			booking_source: "expedia",
+			hotelId: accountId,
+		}).distinct("confirmation_number");
+
+		const newRecords = data.filter((item) => {
+			const confirmationNumber = item["Confirmation #"]
+				? item["Confirmation #"].toString().trim()
+				: item["Reservation ID"].toString().trim();
+			return !existingConfirmationNumbers.includes(confirmationNumber);
+		});
+
+		newRecords.forEach((item) => {
+			const confirmationNumber = item["Confirmation #"]
+				? item["Confirmation #"].toString().trim()
+				: item["Reservation ID"].toString().trim();
+			if (existingConfirmationNumbers.includes(confirmationNumber)) {
+				console.log(`Duplicate found: ${confirmationNumber}`);
+			} else {
+				console.log(`New entry: ${confirmationNumber}`);
+			}
+		});
+
+		// Group data by confirmation_number to handle potential duplicate entries
+		const groupedByConfirmation = newRecords.reduce((acc, item) => {
+			// Use "Confirmation #" if available, otherwise fall back to "Reservation ID"
+			const key = item["Confirmation #"] || item["Reservation ID"];
+			if (!acc[key]) {
+				acc[key] = [];
+			}
+			acc[key].push(item);
+			return acc;
+		}, {});
+
+		// Transform grouped data into reservations
+		const transformedData = Object.values(groupedByConfirmation).map(
+			(group) => {
+				// Calculate total price per room type per day
+				const daysOfResidence = calculateDaysOfResidence(
+					group[0]["Check-in"],
+					group[0]["Check-out"]
+				);
+				const pickedRoomsType = group.map((item) => ({
+					room_type: item.Room,
+					chosenPrice: item["Booking amount"] / daysOfResidence || 0,
+					count: 1, // Assuming each record is for one room
+				}));
+
+				// Pick the first item in the group to represent the common fields
+				const firstItem = group[0];
+
+				return {
+					confirmation_number:
+						firstItem["Confirmation #"] || firstItem["Reservation ID"],
+					booking_source: "expedia",
+					customer_details: {
+						name: firstItem.Guest || "", // Assuming 'Guest' contains the full name
+					},
+					state: "confirmed",
+					reservation_status: firstItem.Status.toLowerCase(),
+					total_guests: 1, // Defaulting to 1 as specific guest count might not be available
+					total_rooms: group.length, // The number of items in the group
+					booked_at: new Date(firstItem.Booked),
+					sub_total: firstItem["Booking amount"],
+					total_amount: firstItem["Booking amount"],
+					currency: "SAR", // Default to SAR if currency is not provided in the file
+					checkin_date: new Date(firstItem["Check-in"]),
+					checkout_date: new Date(firstItem["Check-out"]),
+					days_of_residence: daysOfResidence,
+					comment: firstItem["Special Request"] || "", // Replace with the actual column name if different
+					payment: firstItem["Payment type"].toLowerCase(),
+					pickedRoomsType,
+					commision: firstItem.Commission, // Ensure this field exists in your schema
+					hotelId: accountId,
+				};
+			}
+		);
+
+		if (transformedData.length > 0) {
+			await Reservations.insertMany(transformedData);
+			res.status(200).json({ message: "Data imported successfully" });
+		} else {
+			res.status(200).json({ message: "No new data to import" });
+		}
+	} catch (error) {
+		console.error("Error in expediaDataDump:", error);
+		res.status(500).json({ error: "Internal Server Error" });
+	}
+};
+
+exports.bookingDataDump = async (req, res) => {
+	try {
+		const accountId = req.params.accountId;
+		const filePath = req.file.path; // The path to the uploaded file
+		const workbook = xlsx.readFile(filePath);
+		const sheetName = workbook.SheetNames[0];
+		const sheet = workbook.Sheets[sheetName];
+		const data = xlsx.utils.sheet_to_json(sheet); // Convert the sheet data to JSON
+
+		// Filter out data that has confirmation numbers already in the database
+		const existingConfirmationNumbers = await Reservations.find({
+			booking_source: "booking.com",
+			hotelId: accountId, // Assuming this is how you determine ownership
+		}).distinct("confirmation_number");
+
+		const newRecords = data.filter((item) => {
+			const itemNumber = item["Book Number"].toString().trim();
+			return !existingConfirmationNumbers.includes(itemNumber);
+		});
+
+		newRecords.forEach((item) => {
+			const itemNumber = item["Book Number"].toString().trim();
+			if (existingConfirmationNumbers.includes(itemNumber)) {
+				console.log(`Duplicate found: ${itemNumber}`);
+			} else {
+				console.log(`New entry: ${itemNumber}`);
+			}
+		});
+
+		// Group data by confirmation_number to handle potential duplicate entries
+		const groupedByConfirmation = newRecords.reduce((acc, item) => {
+			const key = item["Book Number"];
+			if (!acc[key]) {
+				acc[key] = [];
+			}
+			acc[key].push(item);
+			return acc;
+		}, {});
+
+		const parsePrice = (priceString) => {
+			return parseFloat(priceString.replace(/[^\d.-]/g, ""));
+		};
+
+		// Transform grouped data into reservations
+		const transformedData = Object.values(groupedByConfirmation).map(
+			(group) => {
+				// Calculate total price per room type per day
+				const daysOfResidence = calculateDaysOfResidence(
+					group[0]["Check-in"],
+					group[0]["Check-out"]
+				);
+				const pickedRoomsType = group.map((item) => {
+					const peoplePerRoom = item.People / item.Rooms;
+					let roomType = "";
+					if (peoplePerRoom <= 1) {
+						roomType = "Single Room";
+					} else if (peoplePerRoom <= 2) {
+						roomType = "Double Room";
+					} else if (peoplePerRoom === 3) {
+						roomType = "Triple Room";
+					} else if (peoplePerRoom === 4) {
+						roomType = "Quad Room";
+					} else {
+						roomType = "Family Room";
+					}
+					return {
+						room_type: roomType,
+						chosenPrice: item.Price / daysOfResidence || 0,
+						count: 1, // Assuming each record is for one room
+					};
+				});
+
+				// Pick the first item in the group to represent the common fields
+				const firstItem = group[0];
+
+				return {
+					confirmation_number: firstItem["Book Number"] || "",
+					booking_source: "booking.com",
+					customer_details: {
+						name: firstItem["Guest Name(s)"] || "", // Assuming 'Guest Name(s)' contains the full name
+					},
+					state: "confirmed",
+					reservation_status: firstItem.Status.toLowerCase(),
+					total_guests: firstItem.People || 1, // Total number of guests
+					total_rooms: group.length, // The number of items in the group
+					booked_at: new Date(firstItem["Booked on"]),
+					sub_total: parsePrice(firstItem.Price),
+					total_amount: parsePrice(firstItem.Price),
+					currency: "SAR", // Adjust as needed
+					checkin_date: new Date(firstItem["Check-in"]),
+					checkout_date: new Date(firstItem["Check-out"]),
+					days_of_residence: daysOfResidence,
+					comment: firstItem.Remarks || "",
+					payment: firstItem["Payment Method"],
+					pickedRoomsType,
+					// commission: firstItem["Commission Amount"], // Ensure this field exists in your schema
+					hotelId: accountId,
+				};
+			}
+		);
+
+		console.log(transformedData.length, "transformedData");
+
+		if (transformedData.length > 0) {
+			await Reservations.insertMany(transformedData);
+			res.status(200).json({ message: "Data imported successfully" });
+		} else {
+			res.status(200).json({ message: "No new data to import" });
+		}
+	} catch (error) {
+		console.error("Error in bookingDataDump:", error);
+		res.status(500).json({ error: "Internal Server Error" });
+	}
 };
