@@ -921,10 +921,10 @@ exports.bookingDataDump = async (req, res) => {
 				const firstItem = group[0];
 
 				// ... Inside your transform logic
-				const subTotal = parsePrice(firstItem.Price || "0 SAR"); // Provide a default string if Price is undefined
-				const totalAmount = parsePrice(firstItem.Price || "0 SAR"); // Provide a default string if Price is undefined
+				const subTotal = parsePrice(firstItem.price || "0 SAR"); // Provide a default string if Price is undefined
+				const totalAmount = parsePrice(firstItem.price || "0 SAR"); // Provide a default string if Price is undefined
 				const commission = parsePrice(
-					firstItem["Commission Amount"] || "0 SAR"
+					firstItem["commission amount"] || "0 SAR"
 				); // Provide a default string if Commission Amount is undefined
 
 				// Use the parseDate function for date fields
