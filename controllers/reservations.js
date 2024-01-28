@@ -946,8 +946,8 @@ exports.bookingDataDump = async (req, res) => {
 						name: firstItem["guest name(s)"] || "", // Assuming 'Guest Name(s)' contains the full name
 					},
 					state: "confirmed",
-					reservation_status: firstItem.Status,
-					total_guests: firstItem.People || 1, // Total number of guests
+					reservation_status: firstItem.status,
+					total_guests: firstItem.people || 1, // Total number of guests
 					total_rooms: group.length, // The number of items in the group
 					booked_at: bookedAt,
 					checkin_date: checkInDate,
@@ -956,8 +956,8 @@ exports.bookingDataDump = async (req, res) => {
 					total_amount: totalAmount,
 					currency: "SAR", // Adjust as needed
 					days_of_residence: daysOfResidence,
-					comment: firstItem.Remarks || "",
-					payment: firstItem["Payment Method"],
+					comment: firstItem.remarks || "",
+					payment: firstItem["payment method"],
 					pickedRoomsType,
 					commission: commission, // Ensure this field exists in your schema
 					hotelId: accountId,
