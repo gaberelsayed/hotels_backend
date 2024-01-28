@@ -813,7 +813,18 @@ exports.bookingDataDump = async (req, res) => {
 		const workbook = xlsx.readFile(filePath);
 		const sheetName = workbook.SheetNames[0];
 		const sheet = workbook.Sheets[sheetName];
-		const data = xlsx.utils.sheet_to_json(sheet); // Convert the sheet data to JSON
+		let data = xlsx.utils.sheet_to_json(sheet); // Convert the sheet data to JSON
+
+		// Convert keys of each item in data to lowercase
+		data = data.map((item) => {
+			const newItem = {};
+			for (const key in item) {
+				if (item.hasOwnProperty(key) && key) {
+					newItem[key.toLowerCase()] = item[key];
+				}
+			}
+			return newItem;
+		});
 
 		// Filter out data that has confirmation numbers already in the database
 		const existingConfirmationNumbers = await Reservations.find({
@@ -822,12 +833,15 @@ exports.bookingDataDump = async (req, res) => {
 		}).distinct("confirmation_number");
 
 		const newRecords = data.filter((item) => {
-			const itemNumber = item["Book Number"].toString().trim();
+			if (!item["book number"] || item["book number"] === null) {
+				return false;
+			}
+			const itemNumber = item["book number"].toString().trim();
 			return !existingConfirmationNumbers.includes(itemNumber);
 		});
 
 		newRecords.forEach((item) => {
-			const itemNumber = item["Book Number"].toString().trim();
+			const itemNumber = item["book number"].toString().trim();
 			if (existingConfirmationNumbers.includes(itemNumber)) {
 				console.log(`Duplicate found: ${itemNumber}`);
 			} else {
@@ -837,7 +851,7 @@ exports.bookingDataDump = async (req, res) => {
 
 		// Group data by confirmation_number to handle potential duplicate entries
 		const groupedByConfirmation = newRecords.reduce((acc, item) => {
-			const key = item["Book Number"];
+			const key = item["book number"];
 			if (!acc[key]) {
 				acc[key] = [];
 			}
@@ -851,6 +865,23 @@ exports.bookingDataDump = async (req, res) => {
 				return parseFloat(priceString.replace(/[^\d.-]/g, ""));
 			}
 			return 0; // Return 0 or some default value if the priceString is not a valid string
+		};
+
+		const calculateDaysOfResidence = (checkIn, checkOut) => {
+			const checkInDate = new Date(checkIn);
+			const checkOutDate = new Date(checkOut);
+
+			// Validate if both dates are valid
+			if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
+				return 0; // Return a default value (e.g., 0) if dates are invalid
+			}
+
+			return (checkOutDate - checkInDate) / (1000 * 3600 * 24); // Calculating difference in days
+		};
+
+		const parseDate = (dateString) => {
+			const date = new Date(dateString);
+			return isNaN(date.getTime()) ? null : date;
 		};
 
 		// Transform grouped data into reservations
@@ -895,24 +926,35 @@ exports.bookingDataDump = async (req, res) => {
 				const commission = parsePrice(
 					firstItem["Commission Amount"] || "0 SAR"
 				); // Provide a default string if Commission Amount is undefined
-				// ..
+
+				// Use the parseDate function for date fields
+				const bookedAt = parseDate(firstItem["booked on"]);
+				const checkInDate = parseDate(firstItem["check-in"]);
+				const checkOutDate = parseDate(firstItem["check-out"]);
+
+				if (!bookedAt || !checkInDate || !checkOutDate) {
+					console.error(
+						`Invalid date found in record: ${JSON.stringify(firstItem)}`
+					);
+					// Optionally skip this record or handle the error as needed
+				}
 
 				return {
-					confirmation_number: firstItem["Book Number"] || "",
+					confirmation_number: firstItem["book number"] || "",
 					booking_source: "booking.com",
 					customer_details: {
-						name: firstItem["Guest Name(s)"] || "", // Assuming 'Guest Name(s)' contains the full name
+						name: firstItem["guest name(s)"] || "", // Assuming 'Guest Name(s)' contains the full name
 					},
 					state: "confirmed",
-					reservation_status: firstItem.Status.toLowerCase(),
+					reservation_status: firstItem.Status,
 					total_guests: firstItem.People || 1, // Total number of guests
 					total_rooms: group.length, // The number of items in the group
-					booked_at: new Date(firstItem["Booked on"]),
+					booked_at: bookedAt,
+					checkin_date: checkInDate,
+					checkout_date: checkOutDate,
 					sub_total: totalAmount - subTotal,
 					total_amount: totalAmount,
 					currency: "SAR", // Adjust as needed
-					checkin_date: new Date(firstItem["Check-in"]),
-					checkout_date: new Date(firstItem["Check-out"]),
 					days_of_residence: daysOfResidence,
 					comment: firstItem.Remarks || "",
 					payment: firstItem["Payment Method"],
@@ -922,8 +964,6 @@ exports.bookingDataDump = async (req, res) => {
 				};
 			}
 		);
-
-		console.log(transformedData.length, "transformedData");
 
 		if (transformedData.length > 0) {
 			await Reservations.insertMany(transformedData);
