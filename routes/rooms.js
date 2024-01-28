@@ -24,6 +24,7 @@ const {
 	getDistinctRoomTypesFromReservations,
 	getDistinctHotelRunnerRooms,
 	reservedRoomsSummary,
+	removeDuplicates,
 } = require("../controllers/rooms");
 
 router.get("/room-single/:roomId", read);
@@ -44,7 +45,7 @@ router.put(
 	update
 );
 
-router.get("/room/:accountId", list);
+router.get("/room/:accountId/:mainUserId", list);
 router.get("/distinct", getDistinctRoomTypes);
 router.get("/distinct-hotel-runner", getDistinctHotelRunnerRooms);
 router.get(
@@ -52,12 +53,13 @@ router.get(
 	getDistinctRoomTypesFromReservations
 );
 router.get("/room-list", hotelRunnerRoomList);
+router.delete("/room/delete", removeDuplicates);
 
-router.get("/room/:checkin/:checkout", listOfRoomsSummary);
+router.get("/room/:checkin/:checkout/:accoundId", listOfRoomsSummary);
 router.get("/room-admin", isAuth, isAdmin, listForAdmin);
 router.put("/room-inventory-update", updateRoomInventory);
 router.get(
-	"/room-inventory-reserved/:startdate/:enddate",
+	"/room-inventory-reserved/:startdate/:enddate/:accountId",
 	reservedRoomsSummary
 );
 

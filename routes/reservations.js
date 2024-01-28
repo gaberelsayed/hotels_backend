@@ -14,11 +14,8 @@ const {
 	reservationSearch,
 	getListOfReservations,
 	totalRecordsReservations,
-	saveReservationsChannelManager,
-	singleReservationHotelRunner,
 	singleReservation,
 	reservationSearchAllList,
-	hotelRunnerPaginatedList,
 	reservationsList,
 	reservationsList2,
 	updateReservation,
@@ -49,28 +46,13 @@ router.get("/reservations/search/:searchQuery", reservationSearchAllList);
 router.get("/reservations/search/:searchQuery", reservationSearch);
 
 router.get(
-	"/reservations/save/hotel-runner/:page/:hotelId/:belongsTo",
-	saveReservationsChannelManager
-);
-
-router.get(
 	"/reservations/remove-duplicates",
 	removeDuplicates_ConfirmationNumber
 );
 
 router.get(
-	"/reservations/single-reservation/hotel-runner/:reservationNumber",
-	singleReservationHotelRunner
-);
-
-router.get(
 	"/reservations/single-reservation/:reservationNumber/:hotelId/:belongsTo",
 	singleReservation
-);
-
-router.get(
-	"/reservations/list/paginated/:page/:per_page",
-	hotelRunnerPaginatedList
 );
 
 router.get("/reservations/:startdate/:enddate/:accountId", reservationsList);

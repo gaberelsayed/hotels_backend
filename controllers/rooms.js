@@ -54,21 +54,84 @@ exports.update = (req, res) => {
 	});
 };
 
-exports.list = (req, res) => {
-	const userId = mongoose.Types.ObjectId(req.params.accountId);
+exports.list = async (req, res) => {
+	const accountId = mongoose.Types.ObjectId(req.params.accountId);
+	const mainUserId = mongoose.Types.ObjectId(req.params.mainUserId);
+	console.log(accountId, "accountId");
+	console.log(mainUserId, "mainUserId");
 
-	Rooms.find({ hotelId: userId })
-		.populate("belongsTo")
-		.exec((err, data) => {
-			if (err) {
-				console.log(err, "err");
+	try {
+		const data = await Rooms.aggregate([
+			{
+				$match: {
+					$or: [{ hotelId: accountId }, { belongsTo: mainUserId }],
+				},
+			},
+			{
+				$group: {
+					_id: "$room_type", // Grouping by room_type to avoid duplicates
+					rooms: { $push: "$$ROOT" }, // $$ROOT represents the whole document
+				},
+			},
+			{
+				$project: {
+					rooms: 1,
+					_id: 0, // Not including _id in the final output
+				},
+			},
+		]).exec();
 
-				return res.status(400).json({
-					error: err,
-				});
-			}
-			res.json(data);
-		});
+		// Flatten the results since they are grouped by room_type
+		const flatData = data.reduce((acc, curr) => [...acc, ...curr.rooms], []);
+		res.json(flatData);
+	} catch (err) {
+		console.log(err, "err");
+		res.status(400).json({ error: err.message });
+	}
+};
+
+exports.removeDuplicates = async (req, res) => {
+	try {
+		// Step 1: Identify duplicates
+		const duplicates = await Rooms.aggregate([
+			{
+				$group: {
+					_id: {
+						combinedField: {
+							$concat: [
+								"$room_number",
+								{ $toString: "$belongsTo" }, // Convert ObjectId to string
+							],
+						},
+					},
+					ids: { $push: "$_id" },
+					count: { $sum: 1 },
+				},
+			},
+			{
+				$match: {
+					count: { $gt: 1 },
+				},
+			},
+		]).exec();
+
+		let removedCount = 0;
+
+		// Step 2: Remove duplicates
+		for (const dup of duplicates) {
+			const idsToRemove = dup.ids.slice(1); // Keep one document, remove the rest
+			const result = await Rooms.deleteMany({
+				_id: { $in: idsToRemove },
+			}).exec();
+			removedCount += result.deletedCount;
+		}
+
+		// Step 3: Return the count
+		res.json({ message: `Removed ${removedCount} duplicate rooms.` });
+	} catch (err) {
+		console.log(err);
+		res.status(400).json({ error: err.message });
+	}
 };
 
 exports.remove = (req, res) => {
@@ -99,12 +162,23 @@ exports.listForAdmin = (req, res) => {
 
 exports.listOfRoomsSummary = async (req, res) => {
 	try {
-		const { checkin, checkout } = req.params;
+		const { checkin, checkout, accountId } = req.params;
 		const startDate = new Date(checkin);
 		const endDate = new Date(checkout);
+		const hotelId = mongoose.Types.ObjectId(accountId);
+
+		console.log(startDate, "startDate");
+		console.log(endDate, "endDate");
+		console.log(hotelId, "hotelId");
+
+		// Ensure that the startDate and endDate are valid dates
+		if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+			return res.status(400).json({ error: "Invalid date format" });
+		}
 
 		// Aggregate total rooms by type, including room pricing
 		const totalRoomsByType = await Rooms.aggregate([
+			{ $match: { hotelId: hotelId } },
 			{
 				$group: {
 					_id: "$room_type",
@@ -114,10 +188,26 @@ exports.listOfRoomsSummary = async (req, res) => {
 			},
 		]);
 
+		// Construct the match stage for new and pre-reservations
+		const matchStage = {
+			$match: {
+				$or: [
+					{ checkin_date: { $lte: endDate, $gte: startDate } },
+					{ checkout_date: { $lte: endDate, $gte: startDate } },
+					{
+						checkin_date: { $lte: startDate },
+						checkout_date: { $gte: endDate },
+					},
+				],
+			},
+		};
+
 		// Find overlapping new reservations
 		const overlappingNewReservations = await Reservations.aggregate([
+			matchStage,
 			{
 				$match: {
+					hotelId: hotelId,
 					$or: [
 						{ checkin_date: { $lte: endDate, $gte: startDate } },
 						{ checkout_date: { $lte: endDate, $gte: startDate } },
@@ -146,8 +236,10 @@ exports.listOfRoomsSummary = async (req, res) => {
 		// Find overlapping pre-reservations
 		// Aggregate pickedRoomsType to get the total count for each room_type
 		const overlappingPreReservations = await Reservations.aggregate([
+			matchStage,
 			{
 				$match: {
+					hotelId: hotelId,
 					overallBookingStatus: "Confirmed", // Add this condition
 					checkin_date: { $lte: endDate },
 					checkout_date: { $gte: startDate },
@@ -503,12 +595,14 @@ exports.updateRoomInventory = async (req, res) => {
 // };
 
 exports.reservedRoomsSummary = async (req, res) => {
-	const { startdate, enddate } = req.params;
+	const { startdate, enddate, accountId } = req.params;
+	const belongsTo = mongoose.Types.ObjectId(accountId);
 
 	try {
 		// Aggregate to count the reserved rooms within the specified date range
 		const reservedRooms = await Reservations.aggregate([
 			{
+				belongsTo: belongsTo,
 				$match: {
 					$or: [{ roomId: { $eq: [] } }, { roomId: { $eq: [null] } }],
 					checkin_date: { $gte: new Date(startdate) },
@@ -583,6 +677,7 @@ exports.reservedRoomsSummary = async (req, res) => {
 		const occupiedRooms = await Reservations.aggregate([
 			{
 				$match: {
+					belongsTo: belongsTo,
 					roomId: { $not: { $size: 0 } },
 					checkin_date: { $gte: new Date(startdate) },
 					checkout_date: { $lte: new Date(enddate) },
@@ -666,6 +761,14 @@ exports.reservedRoomsSummary = async (req, res) => {
 		// Get the total number of rooms from the Rooms schema
 		const totalRooms = await Rooms.aggregate([
 			{
+				$match: {
+					belongsTo: belongsTo,
+					roomId: { $not: { $size: 0 } },
+					checkin_date: { $gte: new Date(startdate) },
+					checkout_date: { $lte: new Date(enddate) },
+				},
+			},
+			{
 				$group: {
 					_id: "$room_type",
 					total_available: { $sum: 1 },
@@ -692,7 +795,7 @@ exports.reservedRoomsSummary = async (req, res) => {
 				end_date: enddate,
 			};
 		});
-
+		console.log(summary, "summary");
 		res.json(summary);
 	} catch (error) {
 		console.error("Error in reservedRoomsSummary:", error);
