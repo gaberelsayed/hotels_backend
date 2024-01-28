@@ -908,16 +908,14 @@ exports.bookingDataDump = async (req, res) => {
 					total_guests: firstItem.People || 1, // Total number of guests
 					total_rooms: group.length, // The number of items in the group
 					booked_at: new Date(firstItem["Booked on"]),
-					sub_total: totalAmount - subTotal ? totalAmount - subTotal : 0,
+					sub_total: totalAmount - subTotal,
 					total_amount: totalAmount,
 					currency: "SAR", // Adjust as needed
 					checkin_date: new Date(firstItem["Check-in"]),
 					checkout_date: new Date(firstItem["Check-out"]),
 					days_of_residence: daysOfResidence,
 					comment: firstItem.Remarks || "",
-					payment: firstItem["Payment Method"]
-						? firstItem["Payment Method"]
-						: "HotelCollect",
+					payment: firstItem["Payment Method"],
 					pickedRoomsType,
 					commission: commission, // Ensure this field exists in your schema
 					hotelId: accountId,
