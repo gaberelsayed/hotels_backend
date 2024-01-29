@@ -889,15 +889,19 @@ exports.bookingDataDump = async (req, res) => {
 			(group) => {
 				// Calculate total price per room type per day
 				const daysOfResidence = calculateDaysOfResidence(
-					group[0]["Check-in"],
-					group[0]["Check-out"]
+					group[0]["check-in"],
+					group[0]["check-out"]
 				);
+
 				const pickedRoomsType = group.map((item) => {
-					const price = parsePrice(item.Price);
+					const price = parsePrice(item.price);
 
 					const chosenPrice = daysOfResidence > 0 ? price / daysOfResidence : 0;
 
-					const peoplePerRoom = item.People / item.Rooms;
+					const peoplePerRoom = item.persons
+						? item.persons
+						: item.people / item.rooms;
+
 					let roomType = "";
 					if (peoplePerRoom <= 1) {
 						roomType = "Single Room";
@@ -921,8 +925,8 @@ exports.bookingDataDump = async (req, res) => {
 				const firstItem = group[0];
 
 				// ... Inside your transform logic
-				const subTotal = parsePrice(firstItem.price || "0 SAR"); // Provide a default string if Price is undefined
 				const totalAmount = parsePrice(firstItem.price || "0 SAR"); // Provide a default string if Price is undefined
+
 				const commission = parsePrice(
 					firstItem["commission amount"] || "0 SAR"
 				); // Provide a default string if Commission Amount is undefined
@@ -952,12 +956,12 @@ exports.bookingDataDump = async (req, res) => {
 					booked_at: bookedAt,
 					checkin_date: checkInDate,
 					checkout_date: checkOutDate,
-					sub_total: totalAmount - subTotal,
+					sub_total: totalAmount - commission,
 					total_amount: totalAmount,
 					currency: "SAR", // Adjust as needed
 					days_of_residence: daysOfResidence,
 					comment: firstItem.remarks || "",
-					payment: firstItem["payment method"],
+					payment: firstItem["payment status"],
 					pickedRoomsType,
 					commission: commission, // Ensure this field exists in your schema
 					hotelId: accountId,
