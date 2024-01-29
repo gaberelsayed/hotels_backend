@@ -595,15 +595,17 @@ exports.updateRoomInventory = async (req, res) => {
 // };
 
 exports.reservedRoomsSummary = async (req, res) => {
-	const { startdate, enddate, accountId } = req.params;
-	const belongsTo = mongoose.Types.ObjectId(accountId);
+	const { startdate, enddate, belongsTo, accountId } = req.params;
+	const belongsToId = mongoose.Types.ObjectId(belongsTo);
+	const accound_id = mongoose.Types.ObjectId(accountId);
 
 	try {
 		// Aggregate to count the reserved rooms within the specified date range
 		const reservedRooms = await Reservations.aggregate([
 			{
-				belongsTo: belongsTo,
 				$match: {
+					belongsTo: belongsToId,
+					hotelId: accound_id,
 					$or: [{ roomId: { $eq: [] } }, { roomId: { $eq: [null] } }],
 					checkin_date: { $gte: new Date(startdate) },
 					checkout_date: { $lte: new Date(enddate) },
@@ -677,7 +679,8 @@ exports.reservedRoomsSummary = async (req, res) => {
 		const occupiedRooms = await Reservations.aggregate([
 			{
 				$match: {
-					belongsTo: belongsTo,
+					belongsTo: belongsToId,
+					hotelId: accound_id,
 					roomId: { $not: { $size: 0 } },
 					checkin_date: { $gte: new Date(startdate) },
 					checkout_date: { $lte: new Date(enddate) },
@@ -762,7 +765,8 @@ exports.reservedRoomsSummary = async (req, res) => {
 		const totalRooms = await Rooms.aggregate([
 			{
 				$match: {
-					belongsTo: belongsTo,
+					belongsTo: belongsToId,
+					hotelId: accound_id,
 					roomId: { $not: { $size: 0 } },
 					checkin_date: { $gte: new Date(startdate) },
 					checkout_date: { $lte: new Date(enddate) },

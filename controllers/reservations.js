@@ -78,13 +78,15 @@ exports.create = (req, res) => {
 
 exports.reservationSearchAllList = async (req, res) => {
 	try {
-		const { searchQuery } = req.params;
+		const { searchQuery, accountId } = req.params;
+		const hotelId = mongoose.Types.ObjectId(accountId);
 
 		// Create a regex pattern to match the search query in a case-insensitive manner
 		const searchPattern = new RegExp(searchQuery, "i");
 
 		// Query to search across various fields
 		const query = {
+			hotelId: hotelId,
 			$or: [
 				{ "customer_details.name": searchPattern },
 				{ "customer_details.phone": searchPattern },
@@ -115,13 +117,14 @@ exports.reservationSearchAllList = async (req, res) => {
 
 exports.reservationSearch = async (req, res) => {
 	try {
-		const { searchQuery } = req.params;
-
+		const { searchQuery, accountId } = req.params;
+		const hotelId = mongoose.Types.ObjectId(accountId);
 		// Create a regex pattern to match the search query in a case-insensitive manner
 		const searchPattern = new RegExp(searchQuery, "i");
 
 		// Query to search across various fields
 		const query = {
+			hotelId: hotelId,
 			$or: [
 				{ "customer_details.name": searchPattern },
 				{ "customer_details.phone": searchPattern },
@@ -608,12 +611,14 @@ function calculateDaysOfResidence(startDate, endDate) {
 exports.agodaDataDump = async (req, res) => {
 	try {
 		const accountId = req.params.accountId;
+		const userId = req.params.belongsTo;
+		console.log(req.file, "req.file");
+
 		const filePath = req.file.path; // The path to the uploaded file
 		const workbook = xlsx.readFile(filePath);
 		const sheetName = workbook.SheetNames[0];
 		const sheet = workbook.Sheets[sheetName];
 		const data = xlsx.utils.sheet_to_json(sheet); // Convert the sheet data to JSON
-
 		// Filter out data that has confirmation numbers already in the database
 		const existingConfirmationNumbers = await Reservations.find({
 			booking_source: "agoda",
@@ -687,6 +692,7 @@ exports.agodaDataDump = async (req, res) => {
 					payment: firstItem.PaymentModel.toLowerCase(),
 					pickedRoomsType,
 					hotelId: accountId,
+					belongsTo: userId,
 				};
 			}
 		);
@@ -706,6 +712,7 @@ exports.agodaDataDump = async (req, res) => {
 exports.expediaDataDump = async (req, res) => {
 	try {
 		const accountId = req.params.accountId;
+		const userId = req.params.belongsTo;
 		const filePath = req.file.path; // The path to the uploaded file
 		const workbook = xlsx.readFile(filePath);
 		const sheetName = workbook.SheetNames[0];
@@ -790,6 +797,7 @@ exports.expediaDataDump = async (req, res) => {
 					pickedRoomsType,
 					commision: firstItem.Commission, // Ensure this field exists in your schema
 					hotelId: accountId,
+					belongsTo: userId,
 				};
 			}
 		);
@@ -809,6 +817,7 @@ exports.expediaDataDump = async (req, res) => {
 exports.bookingDataDump = async (req, res) => {
 	try {
 		const accountId = req.params.accountId;
+		const userId = req.params.belongsTo;
 		const filePath = req.file.path; // The path to the uploaded file
 		const workbook = xlsx.readFile(filePath);
 		const sheetName = workbook.SheetNames[0];
@@ -961,10 +970,13 @@ exports.bookingDataDump = async (req, res) => {
 					currency: "SAR", // Adjust as needed
 					days_of_residence: daysOfResidence,
 					comment: firstItem.remarks || "",
-					payment: firstItem["payment status"],
+					payment: firstItem["payment status"]
+						? firstItem["payment status"]
+						: "Not Paid",
 					pickedRoomsType,
 					commission: commission, // Ensure this field exists in your schema
 					hotelId: accountId,
+					belongsTo: userId,
 				};
 			}
 		);

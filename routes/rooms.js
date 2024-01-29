@@ -59,7 +59,7 @@ router.get("/room/:checkin/:checkout/:accoundId", listOfRoomsSummary);
 router.get("/room-admin", isAuth, isAdmin, listForAdmin);
 router.put("/room-inventory-update", updateRoomInventory);
 router.get(
-	"/room-inventory-reserved/:startdate/:enddate/:accountId",
+	"/room-inventory-reserved/:startdate/:enddate/:belongsTo/:accountId",
 	reservedRoomsSummary
 );
 

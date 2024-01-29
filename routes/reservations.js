@@ -42,8 +42,11 @@ router.get(
 	totalRecordsReservations
 );
 
-router.get("/reservations/search/:searchQuery", reservationSearchAllList);
-router.get("/reservations/search/:searchQuery", reservationSearch);
+router.get(
+	"/reservations/search/all-list/:searchQuery/:accountId",
+	reservationSearchAllList
+);
+router.get("/reservations/search/:searchQuery/:accountId", reservationSearch);
 
 router.get(
 	"/reservations/remove-duplicates",
@@ -58,17 +61,17 @@ router.get(
 router.get("/reservations/:startdate/:enddate/:accountId", reservationsList);
 
 router.post(
-	"/reservations/agoda-data-dump/:accountId",
+	"/reservations/agoda-data-dump/:accountId/:belongsTo",
 	upload.single("file"),
 	agodaDataDump
 );
 router.post(
-	"/reservations/expedia-data-dump/:accountId",
+	"/reservations/expedia-data-dump/:accountId/:belongsTo",
 	upload.single("file"),
 	expediaDataDump
 );
 router.post(
-	"/reservations/booking-data-dump/:accountId",
+	"/reservations/booking-data-dump/:accountId/:belongsTo",
 	upload.single("file"),
 	bookingDataDump
 );
