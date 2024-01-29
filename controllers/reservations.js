@@ -346,7 +346,6 @@ exports.getListOfReservations = async (req, res) => {
 		const endDate = new Date(`${date}T23:59:59+03:00`);
 
 		let dynamicFilter = { hotelId: ObjectId(hotelId) };
-		console.log(parsedFilters.selectedFilter, "parsedFilters.selectedFilter");
 		switch (parsedFilters.selectedFilter) {
 			case "Today's New Reservations":
 				dynamicFilter.booked_at = { $gte: startDate, $lte: endDate };
@@ -512,7 +511,9 @@ exports.hotelRunnerPaginatedList = (req, res) => {
 };
 
 exports.reservationsList = (req, res) => {
-	const userId = mongoose.Types.ObjectId(req.params.accountId);
+	const hotelId = mongoose.Types.ObjectId(req.params.accountId);
+	const userId = mongoose.Types.ObjectId(req.params.belongsTo);
+
 	const startDate = new Date(req.params.startdate);
 	startDate.setHours(0, 0, 0, 0); // Set time to the start of the day
 
@@ -520,15 +521,11 @@ exports.reservationsList = (req, res) => {
 	endDate.setHours(23, 59, 59, 999); // Set time to the end of the day
 
 	let queryConditions = {
-		hotelId: userId,
+		hotelId: hotelId,
+		belongsTo: userId,
 		checkin_date: { $gte: startDate },
 		checkout_date: { $lte: endDate },
-		$where: function () {
-			return (
-				this.roomId.length > 0 &&
-				this.roomId.every((element) => element != null)
-			);
-		},
+		roomId: { $exists: true, $ne: [], $not: { $elemMatch: { $eq: null } } },
 	};
 
 	Reservations.find(queryConditions)

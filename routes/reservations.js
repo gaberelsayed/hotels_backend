@@ -25,7 +25,7 @@ const {
 } = require("../controllers/reservations");
 
 router.post(
-	"/reservations/create/:userId",
+	"/reservations/create/:userId/:hotelId",
 	requireSignin,
 	isAuth,
 	isHotelOwner,
@@ -58,7 +58,10 @@ router.get(
 	singleReservation
 );
 
-router.get("/reservations/:startdate/:enddate/:accountId", reservationsList);
+router.get(
+	"/reservations/:startdate/:enddate/:belongsTo/:accountId/",
+	reservationsList
+);
 
 router.post(
 	"/reservations/agoda-data-dump/:accountId/:belongsTo",
