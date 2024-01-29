@@ -24,7 +24,6 @@ const {
 	getDistinctRoomTypesFromReservations,
 	getDistinctHotelRunnerRooms,
 	reservedRoomsSummary,
-	removeDuplicates,
 } = require("../controllers/rooms");
 
 router.get("/room-single/:roomId", read);
@@ -53,7 +52,7 @@ router.get(
 	getDistinctRoomTypesFromReservations
 );
 router.get("/room-list", hotelRunnerRoomList);
-router.delete("/room/delete", removeDuplicates);
+// router.delete("/room/delete", removeDuplicates);
 
 router.get("/room/:checkin/:checkout/:accoundId", listOfRoomsSummary);
 router.get("/room-admin", isAuth, isAdmin, listForAdmin);
