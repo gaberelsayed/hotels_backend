@@ -341,6 +341,13 @@ exports.getListOfReservations = async (req, res) => {
 			return res.status(400).send("Invalid parameters");
 		}
 
+		const today = new Date();
+		const yesterday = new Date();
+		yesterday.setDate(today.getDate() - 1);
+
+		const startOfYesterday = new Date(yesterday.setHours(0, 0, 0, 0));
+		const endOfToday = new Date(today.setHours(23, 59, 59, 999));
+
 		const parsedFilters = JSON.parse(filters);
 		const startDate = new Date(`${date}T00:00:00+03:00`);
 		const endDate = new Date(`${date}T23:59:59+03:00`);
@@ -348,7 +355,7 @@ exports.getListOfReservations = async (req, res) => {
 		let dynamicFilter = { hotelId: ObjectId(hotelId) };
 		switch (parsedFilters.selectedFilter) {
 			case "Today's New Reservations":
-				dynamicFilter.booked_at = { $gte: startDate, $lte: endDate };
+				dynamicFilter.booked_at = { $gte: startOfYesterday, $lte: endOfToday };
 				break;
 			case "Cancelations":
 				dynamicFilter.reservation_status = {
@@ -372,7 +379,7 @@ exports.getListOfReservations = async (req, res) => {
 
 		const pipeline = [
 			{ $match: dynamicFilter },
-			{ $sort: { booked_at: -1 } },
+			{ $sort: { booked_at: -1 } }, // Sort by booked_at in descending order
 			{ $skip: (parsedPage - 1) * parsedRecords },
 			{ $limit: parsedRecords },
 		];
@@ -387,15 +394,55 @@ exports.getListOfReservations = async (req, res) => {
 
 exports.totalRecordsReservations = async (req, res) => {
 	try {
-		const hotelId = req.params.hotelId;
+		const { page, records, filters, hotelId, date } = req.params;
+		const parsedPage = parseInt(page);
+		const parsedRecords = parseInt(records);
 
-		if (!ObjectId.isValid(hotelId)) {
-			return res.status(400).send("Invalid hotelId parameter");
+		if (
+			isNaN(parsedPage) ||
+			isNaN(parsedRecords) ||
+			!ObjectId.isValid(hotelId)
+		) {
+			return res.status(400).send("Invalid parameters");
 		}
 
-		const total = await Reservations.countDocuments({
-			hotelId: ObjectId(hotelId),
-		});
+		const today = new Date();
+		const yesterday = new Date();
+		yesterday.setDate(today.getDate() - 1);
+
+		const startOfYesterday = new Date(yesterday.setHours(0, 0, 0, 0));
+		const endOfToday = new Date(today.setHours(23, 59, 59, 999));
+
+		const parsedFilters = JSON.parse(filters);
+		const startDate = new Date(`${date}T00:00:00+03:00`);
+		const endDate = new Date(`${date}T23:59:59+03:00`);
+
+		let dynamicFilter = { hotelId: ObjectId(hotelId) };
+		switch (parsedFilters.selectedFilter) {
+			case "Today's New Reservations":
+				dynamicFilter.booked_at = { $gte: startOfYesterday, $lte: endOfToday };
+				break;
+			case "Cancelations":
+				dynamicFilter.reservation_status = {
+					$in: ["cancelled_by_guest", "canceled", "Cancelled", "cancelled"],
+				};
+				break;
+			case "Today's Arrivals":
+				dynamicFilter.checkin_date = { $gte: startDate, $lte: endDate };
+				break;
+			case "Today's Departures":
+				dynamicFilter.checkout_date = { $gte: startDate, $lte: endDate };
+				break;
+			case "Incomplete reservations":
+				dynamicFilter.reservation_status = { $nin: ["closed", "canceled"] };
+				break;
+			case "In House":
+				dynamicFilter.reservation_status = { $eq: "inhouse" };
+				break;
+			// other cases...
+		}
+
+		const total = await Reservations.countDocuments(dynamicFilter);
 		res.json({ total });
 	} catch (error) {
 		console.error("Error fetching total records:", error);
@@ -472,41 +519,6 @@ exports.singleReservation = (req, res) => {
 			res
 				.status(500)
 				.json({ error: "Error fetching and processing reservation" });
-		});
-};
-
-exports.hotelRunnerPaginatedList = (req, res) => {
-	const token = process.env.HOTEL_RUNNER_TOKEN;
-	const hrId = process.env.HR_ID;
-
-	// Extract page and per_page from the route parameters
-	const { page, per_page } = req.params;
-
-	// Construct the query parameters
-	const queryParams = new URLSearchParams({
-		token: token,
-		hr_id: hrId,
-		undelivered: "false", // Assuming 'false' will include all reservations
-		modified: "false", // Assuming 'false' will not filter out unmodified reservations
-		page: page, // Use the page number from the route parameter
-		per_page: per_page, // Use the per_page limit from the route parameter
-	}).toString();
-
-	const url = `https://app.hotelrunner.com/api/v2/apps/reservations?${queryParams}`;
-
-	fetch(url)
-		.then((apiResponse) => {
-			if (!apiResponse.ok) {
-				throw new Error(`HTTP error! status: ${apiResponse.status}`);
-			}
-			return apiResponse.json();
-		})
-		.then((data) => {
-			res.json(data); // Send back the data received from the HotelRunner API
-		})
-		.catch((error) => {
-			console.error("API request error:", error);
-			res.status(500).json({ error: "Error fetching reservations" });
 		});
 };
 

@@ -655,7 +655,7 @@ exports.reservedRoomsSummary = async (req, res) => {
 			{
 				$group: {
 					_id: "$simplifiedRoomType",
-					occupied: { $sum: 1 },
+					occupied: { $sum: "$pickedRoomsType.count" }, // Summing the count of rooms
 				},
 			},
 		]);
@@ -686,6 +686,8 @@ exports.reservedRoomsSummary = async (req, res) => {
 			},
 		]);
 
+		console.log(occupiedRooms, "occupiedRooms");
+
 		// Merging reserved and occupied counts with total rooms
 		const summary = totalRooms.map((room) => {
 			const reservedRoom = reservedRooms.find((r) => r._id === room._id) || {
@@ -705,7 +707,6 @@ exports.reservedRoomsSummary = async (req, res) => {
 				end_date: enddate,
 			};
 		});
-		console.log(summary, "summary");
 		res.json(summary);
 	} catch (error) {
 		console.error("Error in reservedRoomsSummary:", error);

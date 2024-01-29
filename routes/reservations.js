@@ -38,7 +38,7 @@ router.get(
 );
 
 router.get(
-	"/reservations/get-total-records/:hotelId",
+	"/reservations/get-total-records/:page/:records/:filters/:hotelId/:date",
 	totalRecordsReservations
 );
 
