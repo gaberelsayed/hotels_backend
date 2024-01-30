@@ -610,6 +610,54 @@ exports.updateReservation = (req, res) => {
 	);
 };
 
+exports.deleteDataSource = async (req, res) => {
+	try {
+		// Extract the source from the request parameters
+		const source = req.params.source;
+
+		// Use the deleteMany function to remove all documents matching the source
+		const deletionResult = await Reservations.deleteMany({
+			booking_source: source,
+		});
+
+		// deletionResult.deletedCount will contain the number of documents removed
+		res.status(200).json({
+			message: `${deletionResult.deletedCount} documents were deleted successfully.`,
+		});
+	} catch (error) {
+		// If an error occurs, log it and return a server error response
+		console.error("Error in deleteDataSource:", error);
+		res.status(500).json({ error: "Internal Server Error" });
+	}
+};
+
+exports.summaryBySource = async () => {
+	try {
+		const summary = await Reservations.aggregate([
+			{
+				$group: {
+					_id: "$booking_source", // Group by booking_source
+					total_amount: { $sum: "$total_amount" }, // Sum of total_amount for each group
+					reservation_count: { $sum: 1 }, // Count of reservations for each group
+				},
+			},
+			{
+				$project: {
+					_id: 0, // Exclude _id from results
+					booking_source: "$_id", // Rename _id to booking_source
+					total_amount: 1, // Include total_amount
+					reservation_count: 1, // Include reservation_count
+				},
+			},
+		]);
+
+		return summary;
+	} catch (error) {
+		console.error("Error in summaryBySource:", error);
+		throw error;
+	}
+};
+
 // Helper function to calculate days of residence
 function calculateDaysOfResidence(startDate, endDate) {
 	const start = new Date(startDate);
@@ -708,7 +756,7 @@ exports.agodaDataDump = async (req, res) => {
 
 		if (transformedData.length > 0) {
 			await Reservations.insertMany(transformedData);
-			res.status(200).json({ message: "Data imported successfully" });
+			res.status(200).json({ message: "Agoda Data imported successfully" });
 		} else {
 			res.status(200).json({ message: "No new data to import" });
 		}
@@ -718,19 +766,40 @@ exports.agodaDataDump = async (req, res) => {
 	}
 };
 
+const parseDate = (excelDate, country) => {
+	// Check if excelDate is a number (Excel's serial date format)
+	if (!isNaN(excelDate) && typeof excelDate === "number") {
+		// Convert Excel's serial date to JavaScript Date
+		const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
+		// Adjust timezone offset
+		const offset = date.getTimezoneOffset();
+		const adjustedDate = new Date(date.getTime() - offset * 60 * 1000);
+		return adjustedDate;
+	} else {
+		// Assume dateString is in the format of "mm/dd/yyyy" or "dd/mm/yyyy"
+		const parts = String(excelDate).split("/");
+		let day, month, year;
+		if (country === "US") {
+			[month, day, year] = parts.map((part) => parseInt(part, 10));
+		} else {
+			[day, month, year] = parts.map((part) => parseInt(part, 10));
+		}
+		return new Date(year, month - 1, day);
+	}
+};
+
 exports.expediaDataDump = async (req, res) => {
 	try {
 		const accountId = req.params.accountId;
 		const userId = req.params.belongsTo;
+		const country = req.params.country;
 		const filePath = req.file.path; // The path to the uploaded file
 		const workbook = xlsx.readFile(filePath);
 		const sheetName = workbook.SheetNames[0];
 		const sheet = workbook.Sheets[sheetName];
 		const data = xlsx.utils.sheet_to_json(sheet); // Convert the sheet data to JSON
 
-		console.log(req.body, "req.body");
-		console.log(req.file, "req.file");
-
+		console.log(country, "country");
 		// Filter out data that has confirmation numbers already in the database
 		const existingConfirmationNumbers = await Reservations.find({
 			booking_source: "expedia",
@@ -759,6 +828,7 @@ exports.expediaDataDump = async (req, res) => {
 		const groupedByConfirmation = newRecords.reduce((acc, item) => {
 			// Use "Confirmation #" if available, otherwise fall back to "Reservation ID"
 			const key = item["Confirmation #"] || item["Reservation ID"];
+
 			if (!acc[key]) {
 				acc[key] = [];
 			}
@@ -769,19 +839,30 @@ exports.expediaDataDump = async (req, res) => {
 		// Transform grouped data into reservations
 		const transformedData = Object.values(groupedByConfirmation).map(
 			(group) => {
+				// Pick the first item in the group to represent the common fields
+				const firstItem = group[0];
+
+				// Check if Check-in and Check-out dates are available
+				if (!firstItem["Check-in"] || !firstItem["Check-out"]) {
+					console.error(
+						"Missing Check-in or Check-out date in row:",
+						firstItem
+					);
+					return null; // Skip this record or handle it appropriately
+				}
+
 				// Calculate total price per room type per day
+				const checkInDate = parseDate(firstItem["Check-in"], country);
+				const checkOutDate = parseDate(firstItem["Check-out"], country);
 				const daysOfResidence = calculateDaysOfResidence(
-					group[0]["Check-in"],
-					group[0]["Check-out"]
+					checkInDate,
+					checkOutDate
 				);
 				const pickedRoomsType = group.map((item) => ({
 					room_type: item.Room,
 					chosenPrice: item["Booking amount"] / daysOfResidence || 0,
 					count: 1, // Assuming each record is for one room
 				}));
-
-				// Pick the first item in the group to represent the common fields
-				const firstItem = group[0];
 
 				return {
 					confirmation_number:
@@ -798,8 +879,8 @@ exports.expediaDataDump = async (req, res) => {
 					sub_total: firstItem["Booking amount"],
 					total_amount: firstItem["Booking amount"],
 					currency: "SAR", // Default to SAR if currency is not provided in the file
-					checkin_date: new Date(firstItem["Check-in"]),
-					checkout_date: new Date(firstItem["Check-out"]),
+					checkin_date: checkInDate,
+					checkout_date: checkOutDate,
 					days_of_residence: daysOfResidence,
 					comment: firstItem["Special Request"] || "", // Replace with the actual column name if different
 					payment: firstItem["Payment type"].toLowerCase(),
@@ -813,7 +894,7 @@ exports.expediaDataDump = async (req, res) => {
 
 		if (transformedData.length > 0) {
 			await Reservations.insertMany(transformedData);
-			res.status(200).json({ message: "Data imported successfully" });
+			res.status(200).json({ message: "Expedia Data imported successfully" });
 		} else {
 			res.status(200).json({ message: "No new data to import" });
 		}
@@ -992,7 +1073,9 @@ exports.bookingDataDump = async (req, res) => {
 
 		if (transformedData.length > 0) {
 			await Reservations.insertMany(transformedData);
-			res.status(200).json({ message: "Data imported successfully" });
+			res
+				.status(200)
+				.json({ message: "Booking.com Data imported successfully" });
 		} else {
 			res.status(200).json({ message: "No new data to import" });
 		}

@@ -22,6 +22,8 @@ const {
 	agodaDataDump,
 	expediaDataDump,
 	bookingDataDump,
+	deleteDataSource,
+	summaryBySource,
 } = require("../controllers/reservations");
 
 router.post(
@@ -63,13 +65,16 @@ router.get(
 	reservationsList
 );
 
+router.delete("/reservations/delete/:source", deleteDataSource);
+router.get("/reservations/summary-by-source", summaryBySource);
+
 router.post(
 	"/reservations/agoda-data-dump/:accountId/:belongsTo",
 	upload.single("file"),
 	agodaDataDump
 );
 router.post(
-	"/reservations/expedia-data-dump/:accountId/:belongsTo",
+	"/reservations/expedia-data-dump/:accountId/:belongsTo/:country",
 	upload.single("file"),
 	expediaDataDump
 );
