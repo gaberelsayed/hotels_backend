@@ -1120,3 +1120,309 @@ exports.dateReport = async (req, res) => {
 			.json({ error: "Internal server error", details: error.message });
 	}
 };
+
+exports.dayoverday = async (req, res) => {
+	try {
+		const { hotelId, userMainId } = req.params;
+
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		const past45Days = new Date(today);
+		past45Days.setDate(past45Days.getDate() - 15);
+
+		const matchCondition = {
+			hotelId: ObjectId(hotelId),
+			belongsTo: ObjectId(userMainId),
+			booked_at: { $gte: past45Days, $lte: today },
+		};
+
+		const aggregation = await Reservations.aggregate([
+			{ $match: matchCondition },
+			{
+				$addFields: {
+					isCancelled: {
+						$regexMatch: {
+							input: "$reservation_status",
+							regex: /cancelled/,
+							options: "i",
+						},
+					},
+					isInProgress: {
+						$and: [
+							{
+								$not: [
+									{
+										$regexMatch: {
+											input: "$reservation_status",
+											regex: /cancelled|checkedout|checkout/,
+											options: "i",
+										},
+									},
+								],
+							},
+							{
+								$or: [
+									{ $eq: [{ $size: "$roomId" }, 0] },
+									{ $eq: ["$roomId", null] },
+								],
+							},
+						],
+					},
+				},
+			},
+			{
+				$group: {
+					_id: { $dateToString: { format: "%Y-%m-%d", date: "$booked_at" } },
+					totalReservations: { $sum: 1 },
+					totalAmount: { $sum: "$total_amount" },
+					cancelledReservations: { $sum: { $cond: ["$isCancelled", 1, 0] } },
+					cancelledAmount: {
+						$sum: { $cond: ["$isCancelled", "$total_amount", 0] },
+					},
+					inProgressReservations: { $sum: { $cond: ["$isInProgress", 1, 0] } },
+					inProgressAmount: {
+						$sum: { $cond: ["$isInProgress", "$total_amount", 0] },
+					},
+				},
+			},
+			{ $sort: { _id: 1 } },
+		]);
+
+		res.json(aggregation);
+	} catch (error) {
+		res.status(500).send(error);
+	}
+};
+
+exports.monthovermonth = async (req, res) => {
+	try {
+		const { hotelId, userMainId } = req.params;
+
+		const matchCondition = {
+			hotelId: ObjectId(hotelId),
+			belongsTo: ObjectId(userMainId),
+		};
+
+		const aggregation = await Reservations.aggregate([
+			{ $match: matchCondition },
+			{
+				$addFields: {
+					monthYear: {
+						$concat: [
+							{
+								$arrayElemAt: [
+									[
+										"January",
+										"February",
+										"March",
+										"April",
+										"May",
+										"June",
+										"July",
+										"August",
+										"September",
+										"October",
+										"November",
+										"December",
+									],
+									{ $subtract: [{ $month: "$booked_at" }, 1] },
+								],
+							},
+							", ",
+							{ $toString: { $year: "$booked_at" } },
+						],
+					},
+					isCancelled: {
+						$regexMatch: {
+							input: "$reservation_status",
+							regex: /cancelled/,
+							options: "i",
+						},
+					},
+					isInProgress: {
+						$and: [
+							{
+								$not: [
+									{
+										$regexMatch: {
+											input: "$reservation_status",
+											regex: /cancelled|checkedout|checkout/,
+											options: "i",
+										},
+									},
+								],
+							},
+							{
+								$or: [
+									{ $eq: [{ $size: "$roomId" }, 0] },
+									{ $eq: ["$roomId", null] },
+								],
+							},
+						],
+					},
+				},
+			},
+			{
+				$group: {
+					_id: "$monthYear",
+					totalReservations: { $sum: 1 },
+					totalAmount: { $sum: "$total_amount" },
+					cancelledReservations: { $sum: { $cond: ["$isCancelled", 1, 0] } },
+					cancelledAmount: {
+						$sum: { $cond: ["$isCancelled", "$total_amount", 0] },
+					},
+					inProgressReservations: { $sum: { $cond: ["$isInProgress", 1, 0] } },
+					inProgressAmount: {
+						$sum: { $cond: ["$isInProgress", "$total_amount", 0] },
+					},
+				},
+			},
+			{ $sort: { _id: 1 } },
+		]);
+
+		res.json(aggregation);
+	} catch (error) {
+		res.status(500).send(error);
+	}
+};
+
+exports.bookingSource = async (req, res) => {
+	try {
+		const { hotelId, userMainId } = req.params;
+
+		const matchCondition = {
+			hotelId: ObjectId(hotelId),
+			belongsTo: ObjectId(userMainId),
+		};
+
+		const aggregation = await Reservations.aggregate([
+			{ $match: matchCondition },
+			{
+				$addFields: {
+					isCancelled: {
+						$regexMatch: {
+							input: "$reservation_status",
+							regex: /cancelled/,
+							options: "i",
+						},
+					},
+					isInProgress: {
+						$and: [
+							{
+								$not: [
+									{
+										$regexMatch: {
+											input: "$reservation_status",
+											regex: /cancelled|checkedout|checkout/,
+											options: "i",
+										},
+									},
+								],
+							},
+							{
+								$or: [
+									{ $eq: [{ $size: "$roomId" }, 0] },
+									{ $eq: ["$roomId", null] },
+								],
+							},
+						],
+					},
+				},
+			},
+			{
+				$group: {
+					_id: "$booking_source",
+					totalReservations: { $sum: 1 },
+					totalAmount: { $sum: "$total_amount" },
+					cancelledReservations: { $sum: { $cond: ["$isCancelled", 1, 0] } },
+					cancelledAmount: {
+						$sum: { $cond: ["$isCancelled", "$total_amount", 0] },
+					},
+					inProgressReservations: { $sum: { $cond: ["$isInProgress", 1, 0] } },
+					inProgressAmount: {
+						$sum: { $cond: ["$isInProgress", "$total_amount", 0] },
+					},
+				},
+			},
+			{ $sort: { _id: 1 } },
+		]);
+
+		res.json(aggregation);
+	} catch (error) {
+		res.status(500).send(error);
+	}
+};
+
+exports.reservationstatus = async (req, res) => {
+	try {
+		const { hotelId, userMainId } = req.params;
+
+		const matchCondition = {
+			hotelId: ObjectId(hotelId),
+			belongsTo: ObjectId(userMainId),
+		};
+
+		const aggregation = await Reservations.aggregate([
+			{ $match: matchCondition },
+			{
+				$addFields: {
+					groupedStatus: {
+						$switch: {
+							branches: [
+								{
+									case: {
+										$regexMatch: {
+											input: "$reservation_status",
+											regex: /cancelled/,
+										},
+									},
+									then: "cancelled",
+								},
+								{
+									case: { $in: ["$reservation_status", ["confirmed", "ok"]] },
+									then: "confirmed",
+								},
+							],
+							default: "$reservation_status",
+						},
+					},
+				},
+			},
+			{
+				$group: {
+					_id: "$groupedStatus",
+					totalReservations: { $sum: 1 },
+					totalAmount: { $sum: "$total_amount" },
+					cancelledAmount: {
+						$sum: {
+							$cond: [
+								{ $eq: ["$groupedStatus", "cancelled"] },
+								"$total_amount",
+								0,
+							],
+						},
+					},
+					inProgressReservations: {
+						$sum: {
+							$cond: [
+								{
+									$or: [
+										{ $eq: [{ $size: "$roomId" }, 0] },
+										{ $eq: ["$roomId", null] },
+									],
+								},
+								1,
+								0,
+							],
+						},
+					},
+				},
+			},
+			{ $sort: { _id: 1 } },
+		]);
+
+		res.json(aggregation);
+	} catch (error) {
+		res.status(500).send(error);
+	}
+};

@@ -25,6 +25,10 @@ const {
 	deleteDataSource,
 	summaryBySource,
 	dateReport,
+	dayoverday,
+	monthovermonth,
+	bookingSource,
+	reservationstatus,
 } = require("../controllers/reservations");
 
 router.post(
@@ -91,6 +95,12 @@ router.post(
 
 router.get("/reservations2/:accountId", reservationsList2);
 router.put("/reservation-update/:reservationId", updateReservation);
+
+//Reports
+router.get("/dayoverday/:hotelId/:userMainId", dayoverday);
+router.get("/monthovermonth/:hotelId/:userMainId", monthovermonth);
+router.get("/bookingsource/:hotelId/:userMainId", bookingSource);
+router.get("/reservationstatus/:hotelId/:userMainId", reservationstatus);
 
 router.param("userId", userById);
 router.param("reservationId", reservationById);
