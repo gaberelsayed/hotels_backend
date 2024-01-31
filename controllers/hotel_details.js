@@ -30,25 +30,29 @@ exports.read = (req, res) => {
 	return res.json(req.hotelDetails);
 };
 
-exports.update = (req, res) => {
-	console.log(req.body);
-	const hotelDetails = req.hotelDetails;
-	hotelDetails.hotelName = req.body.hotelName;
-	hotelDetails.hotelAmenities = req.body.hotelAmenities;
-	hotelDetails.hotelFloors = req.body.hotelFloors;
-	hotelDetails.overallRoomsCount = req.body.overallRoomsCount;
-	hotelDetails.roomCountDetails = req.body.roomCountDetails;
-	hotelDetails.roomCountDetails = req.body.roomCountDetails;
-	hotelDetails.parkingLot = req.body.parkingLot;
+exports.updateHotelDetails = (req, res) => {
+	const hotelDetailsId = req.params.hotelId;
+	const updateData = req.body;
 
-	hotelDetails.save((err, data) => {
-		if (err) {
-			return res.status(400).json({
-				error: err,
-			});
+	// Update the hotel details document
+	HotelDetails.findByIdAndUpdate(
+		hotelDetailsId,
+		updateData,
+		{ new: true }, // returns the updated document
+		(err, updatedHotelDetails) => {
+			if (err) {
+				// Handle possible errors
+				console.error(err);
+				return res.status(500).send({ error: "Internal server error" });
+			}
+			if (!updatedHotelDetails) {
+				// Handle the case where no hotel details are found with the given ID
+				return res.status(404).send({ error: "Hotel details not found" });
+			}
+			// Successfully updated
+			res.json(updatedHotelDetails);
 		}
-		res.json(data);
-	});
+	);
 };
 
 exports.list = (req, res) => {

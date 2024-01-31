@@ -24,6 +24,7 @@ const {
 	bookingDataDump,
 	deleteDataSource,
 	summaryBySource,
+	dateReport,
 } = require("../controllers/reservations");
 
 router.post(
@@ -63,6 +64,10 @@ router.get(
 router.get(
 	"/reservations/:startdate/:enddate/:belongsTo/:accountId/",
 	reservationsList
+);
+router.get(
+	"/reservations/todate/ahowan/yaba/:date/:hotelId/:userMainId",
+	dateReport
 );
 
 router.delete("/reservations/delete/:source", deleteDataSource);

@@ -118,6 +118,16 @@ const hotel_detailsSchema = new mongoose.Schema(
 			},
 		},
 
+		pricingCalendar: {
+			type: Array,
+			default: [],
+		},
+
+		hotelPhotos: {
+			type: Array,
+			default: [],
+		},
+
 		hotelRating: {
 			type: Number,
 			default: 3.5,

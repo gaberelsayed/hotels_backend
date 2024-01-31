@@ -1084,3 +1084,39 @@ exports.bookingDataDump = async (req, res) => {
 		res.status(500).json({ error: "Internal Server Error" });
 	}
 };
+
+// Reports
+
+exports.dateReport = async (req, res) => {
+	const { date, hotelId, userMainId } = req.params;
+	const startOfDay = new Date(`${date}T00:00:00Z`);
+	const endOfDay = new Date(`${date}T23:59:59Z`);
+
+	try {
+		const reservations = await Reservations.find({
+			belongsTo: mongoose.Types.ObjectId(userMainId),
+			hotelId: mongoose.Types.ObjectId(hotelId),
+			$or: [
+				{
+					$and: [
+						{ booked_at: { $ne: null, $ne: "" } }, // Ensure booked_at is not null
+						{ booked_at: { $gte: startOfDay, $lte: endOfDay } },
+					],
+				},
+				{
+					$and: [
+						{ checkin_date: { $ne: null, $ne: "" } }, // Ensure checkin_date is not null
+						{ checkin_date: { $gte: startOfDay, $lte: endOfDay } },
+					],
+				},
+			],
+		});
+
+		return res.json(reservations);
+	} catch (error) {
+		console.error(error);
+		return res
+			.status(500)
+			.json({ error: "Internal server error", details: error.message });
+	}
+};

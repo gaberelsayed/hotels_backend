@@ -14,10 +14,9 @@ const {
 	create,
 	hotelDetailsById,
 	read,
-	update,
 	list,
-	remove,
 	listForAdmin,
+	updateHotelDetails,
 } = require("../controllers/hotel_details");
 
 router.get("/hotel-details-single/:hotelDetailsId", read);
@@ -30,16 +29,15 @@ router.post(
 	create
 );
 
+router.get("/hotel-details/:accountId", list);
+router.get("/hotel-details-admin/:userId", isAdmin, listForAdmin);
 router.put(
-	"/hotel-details/:hotelDetailsId/:userId",
+	"/hotel-details-update/:hotelId/:userId",
 	requireSignin,
 	isAuth,
 	isHotelOwner,
-	update
+	updateHotelDetails
 );
-
-router.get("/hotel-details/:accountId", list);
-router.get("/hotel-details-admin/:userId", isAdmin, listForAdmin);
 
 router.param("userId", userById);
 router.param("hotelDetailsId", hotelDetailsById);
