@@ -54,8 +54,19 @@ exports.create = (req, res) => {
 				const FormSubmittionEmail = {
 					to: reservationData.customer_details.email,
 					from: "noreply@janatbooking.com",
-					cc: "Zaerhotel@gmail.com",
-					bcc: "ayed.hotels@gmail.com",
+					// cc: [
+					// 	{ email: "ayed.hotels@gmail.com" },
+					// 	{ email: "zaerhotel@gmail.com" },
+					// 	{ email: "3yedhotel@gmail.com" },
+					// 	{ email: "morazzakhamouda@gmail.com" },
+					// ],
+					bcc: [
+						{ email: "ayed.hotels@gmail.com" },
+						{ email: "zaerhotel@gmail.com" },
+						{ email: "3yedhotel@gmail.com" },
+						{ email: "morazzakhamouda@gmail.com" },
+						{ email: "ahmed.abdelrazak@infinite-apps.com" },
+					],
 					subject: `Janat Booking - Reservation Confirmation`,
 					html: `
 						<!DOCTYPE html>
