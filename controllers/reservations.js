@@ -4,6 +4,9 @@ const ObjectId = mongoose.Types.ObjectId;
 const fetch = require("node-fetch");
 const Rooms = require("../models/rooms");
 const xlsx = require("xlsx");
+const sgMail = require("@sendgrid/mail");
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 exports.reservationById = (req, res, next, id) => {
 	Reservations.findById(id).exec((err, reservations) => {
@@ -40,17 +43,150 @@ function ensureUniqueNumber(model, fieldName, callback) {
 
 exports.create = (req, res) => {
 	// Function to handle the final saving process
-	const saveReservation = (reservationData) => {
+	console.log(req.body.sendEmail, "req.body.sendEmail");
+	console.log(req.body.hotelName, "req.body.hotelName");
+	const saveReservation = async (reservationData) => {
 		const reservations = new Reservations(reservationData);
-		reservations.save((err, data) => {
-			if (err) {
-				console.log(err, "err");
-				return res.status(400).json({
-					error: "Cannot Create reservations",
-				});
-			}
+		try {
+			const data = await reservations.save();
 			res.json({ data });
-		});
+			if (req.body.sendEmail) {
+				const FormSubmittionEmail = {
+					to: reservationData.customer_details.email,
+					from: "noreply@janatbooking.com",
+					cc: "Zaerhotel@gmail.com",
+					bcc: "ayed.hotels@gmail.com",
+					subject: `Janat Booking - Reservation Confirmation`,
+					html: `
+						<!DOCTYPE html>
+						<html lang="en">
+						<head>
+						<meta charset="UTF-8">
+						<meta name="viewport" content="width=device-width, initial-scale=1.0">
+						<title>Reservation Confirmation</title>
+						<style>
+							body {
+								font-family: Arial, sans-serif;
+								margin: 0;
+								padding: 0;
+								background-color: #c5ddf6;
+							}
+							.container {
+								background-color: #fff;
+								width: 100%;
+								max-width: 600px;
+								margin: 0 auto;
+								padding: 20px;
+							}
+							.header {
+								background: #ff6f61;
+								color: white;
+								padding: 10px;
+								text-align: center;
+							}
+							.content {
+								padding-right: 20px;
+								padding-left: 20px;
+								text-align: left;
+							}
+							.footer {
+								background: #ddd;
+								padding: 10px;
+								text-align: center;
+								font-size: 14px;
+								font-weight: bold;
+							}
+
+							.roomType {
+								font-weight: bold;
+								text-transform: capitalize;
+							}
+
+							table {
+								width: 100%;
+								border-collapse: collapse;
+							}
+							th, td {
+								border: 1px solid #ddd;
+								padding: 8px;
+								text-align: left;
+							}
+							th {
+								background-color: #ff6f61;
+								color: white;
+							}
+					
+							h2 {
+								font-weight: bold;
+								font-size: 1.5rem;
+							}
+
+							strong {
+								font-weight: bold;
+							}
+					
+						</style>
+						</head>
+						<body>
+						<div class="container">
+							<div class="header">
+								<h1>New Reservation</h1>
+							</div>
+							<div>
+								<h2>${reservationData.hotelName.toUpperCase()} Hotel</h2>
+							</div>
+							<div class="content">
+								<p><strong>Guest Name:</strong> ${reservationData.customer_details.name}</p>
+								<p><strong>Confirmation Number:</strong> ${
+									reservationData.confirmation_number
+								}</p>
+								<p><strong>Country:</strong> ${reservationData.customer_details.nationality}</p>
+								<table>
+									<tr>
+										<th>Room Type</th>
+										<td class="roomType">${reservationData.pickedRoomsType
+											.map((room) => room.room_type)
+											.join(", ")}</td>
+									</tr>
+									<tr>
+										<th>Check-in Date</th>
+										<td>${reservationData.checkin_date}</td>
+									</tr>
+									<tr>
+										<th>Check-out Date</th>
+										<td>${reservationData.checkout_date}</td>
+									</tr>
+									<tr>
+										<th>Guest Count</th>
+										<td>${reservationData.total_guests}</td>
+									</tr>
+									<tr>
+										<th>Order Total</th>
+										<td>${reservationData.total_amount.toLocaleString()}</td>
+									</tr>
+									<!-- Add more rows as needed -->
+								</table>
+								<p><strong>Booking Date:</strong> ${new Date(
+									reservationData.booked_at
+								).toDateString()}</p>
+								<!-- Add more details from reservationData as needed -->
+							</div>
+							<div class="footer">
+								<p>Thank you for booking with us!</p>
+							</div>
+						</div>
+						</body>
+						</html>
+							`,
+				};
+				sgMail.send(FormSubmittionEmail);
+			}
+		} catch (err) {
+			console.log(err, "err");
+			return res.status(400).json({
+				error: "Cannot Create reservations",
+			});
+		}
 	};
 
 	// Check if the confirmation_number is provided in the request body
