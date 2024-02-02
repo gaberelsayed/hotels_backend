@@ -1064,6 +1064,23 @@ exports.bookingDataDump = async (req, res) => {
 			return newItem;
 		});
 
+		const calculateDaysOfResidence = (checkIn, checkOut) => {
+			const checkInDate = new Date(checkIn);
+			const checkOutDate = new Date(checkOut);
+
+			// Validate if both dates are valid
+			if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
+				return 0; // Return a default value (e.g., 0) if dates are invalid
+			}
+
+			return (checkOutDate - checkInDate) / (1000 * 3600 * 24); // Calculating difference in days
+		};
+
+		const parseDate = (dateString) => {
+			const date = new Date(dateString);
+			return isNaN(date.getTime()) ? null : date;
+		};
+
 		for (const item of data) {
 			const itemNumber = item["book number"]?.toString().trim();
 			if (!itemNumber) continue; // Skip if there's no book number
@@ -1153,23 +1170,6 @@ exports.bookingDataDump = async (req, res) => {
 				return parseFloat(priceString.replace(/[^\d.-]/g, ""));
 			}
 			return 0; // Return 0 or some default value if the priceString is not a valid string
-		};
-
-		const calculateDaysOfResidence = (checkIn, checkOut) => {
-			const checkInDate = new Date(checkIn);
-			const checkOutDate = new Date(checkOut);
-
-			// Validate if both dates are valid
-			if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
-				return 0; // Return a default value (e.g., 0) if dates are invalid
-			}
-
-			return (checkOutDate - checkInDate) / (1000 * 3600 * 24); // Calculating difference in days
-		};
-
-		const parseDate = (dateString) => {
-			const date = new Date(dateString);
-			return isNaN(date.getTime()) ? null : date;
 		};
 
 		// Transform grouped data into reservations
