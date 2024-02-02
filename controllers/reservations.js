@@ -737,7 +737,9 @@ exports.agodaDataDump = async (req, res) => {
 					email: item.Customer_Email || "",
 				},
 				state: "confirmed",
-				reservation_status: item.Status.toLowerCase(),
+				reservation_status: item.Status.toLowerCase().includes("cancelled")
+					? "cancelled"
+					: item.Status,
 				total_guests: item.No_of_adult + (item.No_of_children || 0),
 				cancel_reason: item.CancellationPolicyDescription || "",
 				booked_at: new Date(item.BookedDate),
@@ -765,7 +767,15 @@ exports.agodaDataDump = async (req, res) => {
 			if (existingReservation) {
 				await Reservations.updateOne(
 					{ confirmation_number: itemNumber },
-					{ $set: document }
+					{
+						$set: {
+							...document,
+							reservation_status:
+								document.reservation_status === "cancelled"
+									? "cancelled"
+									: existingReservation.reservation_status,
+						},
+					}
 				);
 			} else {
 				await Reservations.create(document);
@@ -912,7 +922,9 @@ exports.expediaDataDump = async (req, res) => {
 					name: item.Guest || "", // Assuming 'Guest' contains the full name
 				},
 				state: "confirmed",
-				reservation_status: item.Status.toLowerCase(),
+				reservation_status: item.Status.toLowerCase().includes("cancelled")
+					? "cancelled"
+					: item.Status,
 				total_guests: 1, // Defaulting to 1 as specific guest count might not be available
 				total_rooms: group.length, // The number of items in the group
 				booked_at: new Date(item.Booked),
@@ -938,7 +950,15 @@ exports.expediaDataDump = async (req, res) => {
 			if (existingReservation) {
 				await Reservations.updateOne(
 					{ confirmation_number: itemNumber },
-					{ $set: document }
+					{
+						$set: {
+							...document,
+							reservation_status:
+								document.reservation_status === "cancelled"
+									? "cancelled"
+									: existingReservation.reservation_status,
+						},
+					}
 				);
 			} else {
 				await Reservations.create(document);
@@ -1102,7 +1122,9 @@ exports.bookingDataDump = async (req, res) => {
 				customer_details: {
 					name: item["guest name(s)"] || "",
 				},
-				reservation_status: item.status,
+				reservation_status: item.status.toLowerCase().includes("cancelled")
+					? "cancelled"
+					: item.status,
 				total_guests: item.people || 1,
 				total_rooms: item.rooms || 1,
 				booked_at: parseDate(item["booked on"]),
@@ -1132,7 +1154,15 @@ exports.bookingDataDump = async (req, res) => {
 			if (existingReservation) {
 				await Reservations.updateOne(
 					{ confirmation_number: itemNumber },
-					{ $set: document }
+					{
+						$set: {
+							...document,
+							reservation_status:
+								document.reservation_status === "cancelled"
+									? "cancelled"
+									: existingReservation.reservation_status,
+						},
+					}
 				);
 			} else {
 				await Reservations.create(document);
