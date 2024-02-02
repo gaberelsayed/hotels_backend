@@ -598,8 +598,6 @@ exports.updateReservation = async (req, res) => {
 	const reservationId = req.params.reservationId;
 	const updateData = req.body;
 
-	console.log(updateData, "update Data");
-
 	// Assuming validation of reservationId and updateData is done beforehand
 
 	Reservations.findByIdAndUpdate(reservationId, updateData, { new: true })

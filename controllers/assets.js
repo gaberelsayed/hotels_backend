@@ -1,3 +1,5 @@
+const moment = require("moment");
+
 const confirmationEmail = (reservationData) => {
 	const email = `
     <!DOCTYPE html>
@@ -63,13 +65,17 @@ const confirmationEmail = (reservationData) => {
                     </tr>
                     
                     <tr>
-                        <th>Check-in Date</th>
-                        <td>${reservationData.checkin_date}</td>
-                    </tr>
-                    <tr>
-                        <th>Check-out Date</th>
-                        <td>${reservationData.checkout_date}</td>
-                    </tr>
+                    <th>Check-in Date</th>
+                    <td>${moment(reservationData.checkin_date).format(
+											"dddd, MMMM Do YYYY"
+										)}</td>
+                </tr>
+                <tr>
+                    <th>Check-out Date</th>
+                    <td>${moment(reservationData.checkout_date).format(
+											"dddd, MMMM Do YYYY"
+										)}</td>
+                </tr>
                     <tr>
                     <th>Nights Of Residence</th>
                     <td>${reservationData.days_of_residence} Nights</td>
@@ -163,13 +169,17 @@ const reservationUpdate = (reservationData, hotelName) => {
                 </tr>
                 
                 <tr>
-                    <th>Check-in Date</th>
-                    <td>${reservationData.checkin_date}</td>
-                </tr>
-                <tr>
-                    <th>Check-out Date</th>
-                    <td>${reservationData.checkout_date}</td>
-                </tr>
+                <th>Check-in Date</th>
+                <td>${moment(reservationData.checkin_date).format(
+									"dddd, MMMM Do YYYY"
+								)}</td>
+            </tr>
+            <tr>
+                <th>Check-out Date</th>
+                <td>${moment(reservationData.checkout_date).format(
+									"dddd, MMMM Do YYYY"
+								)}</td>
+            </tr>
                 <tr>
                 <th>Nights Of Residence</th>
                 <td>${reservationData.days_of_residence} Nights</td>
