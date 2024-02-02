@@ -101,6 +101,10 @@ const sendEmailWithPdf = async (reservationData) => {
 	try {
 		await sgMail.send(FormSubmittionEmail);
 	} catch (error) {
+		console.error(
+			"Error sending email with PDF error.response.boyd",
+			error.response.body
+		);
 		console.error("Error sending email with PDF", error);
 		// Handle error appropriately
 	}
@@ -187,17 +191,18 @@ exports.reservationSearchAllList = async (req, res) => {
 			],
 		};
 
-		// Fetch the first matching document
-		const reservation = await Reservations.findOne(query).populate("belongsTo");
+		// Fetch all matching documents
+		const reservations = await Reservations.find(query).populate("belongsTo");
 
-		if (!reservation) {
+		if (reservations.length === 0) {
 			return res.status(404).json({
-				error: "No reservation found matching the search criteria.",
+				error: "No reservations found matching the search criteria.",
 			});
 		}
 
-		res.json(reservation);
+		res.json(reservations);
 	} catch (error) {
+		console.error("Error in reservationSearchAllList:", error);
 		res.status(500).send("Server error");
 	}
 };
@@ -619,7 +624,9 @@ exports.updateReservation = async (req, res) => {
 
 			// Prepare and send the update email
 			try {
-				await sendEmailUpdate(updatedReservation, updateData.hotelName); // Make sure updatedReservation has the expected structure for your email template
+				if (req.body.sendEmail) {
+					await sendEmailUpdate(updatedReservation, updateData.hotelName); // Make sure updatedReservation has the expected structure for your email template
+				}
 				res.json({
 					message: "Reservation updated and email sent successfully",
 					reservation: updatedReservation,
@@ -698,7 +705,6 @@ exports.agodaDataDump = async (req, res) => {
 	try {
 		const accountId = req.params.accountId;
 		const userId = req.params.belongsTo;
-		console.log(req.file, "req.file");
 
 		const filePath = req.file.path; // The path to the uploaded file
 		const workbook = xlsx.readFile(filePath);
@@ -710,6 +716,61 @@ exports.agodaDataDump = async (req, res) => {
 			booking_source: "agoda",
 			hotelId: accountId,
 		}).distinct("confirmation_number");
+
+		for (const item of data) {
+			const itemNumber = item["book number"]?.toString().trim();
+			if (!itemNumber) continue; // Skip if there's no book number
+
+			const daysOfResidence = calculateDaysOfResidence(
+				item.StayDateFrom,
+				item.StayDateTo
+			);
+
+			// Prepare the document based on your mapping, including any necessary calculations
+			const document = {
+				confirmation_number: item.BookingIDExternal_reference_ID,
+				booking_source: "agoda",
+				customer_details: {
+					name: item.Customer_Name, // Concatenated first name and last name if available
+					nationality: item.Customer_Nationality,
+					phone: item.Customer_Phone || "",
+					email: item.Customer_Email || "",
+				},
+				state: "confirmed",
+				reservation_status: item.Status.toLowerCase(),
+				total_guests: item.No_of_adult + (item.No_of_children || 0),
+				cancel_reason: item.CancellationPolicyDescription || "",
+				booked_at: new Date(item.BookedDate),
+				sub_total: item.Total_inclusive_rate,
+				total_amount:
+					Number(item.Total_inclusive_rate) + Number(item.Commission),
+				currency: item.Currency,
+				checkin_date: new Date(item.StayDateFrom),
+				checkout_date: new Date(item.StayDateTo),
+				days_of_residence: daysOfResidence,
+				comment: item.Special_Request || "",
+				commision: item.Commission, // Note the misspelling of 'commission' here
+				payment: item.PaymentModel.toLowerCase(),
+				pickedRoomsType,
+				hotelId: accountId,
+				belongsTo: userId,
+			};
+
+			const existingReservation = await Reservations.findOne({
+				confirmation_number: itemNumber,
+				booking_source: "booking.com",
+				hotelId: accountId,
+			});
+
+			if (existingReservation) {
+				await Reservations.updateOne(
+					{ confirmation_number: itemNumber },
+					{ $set: document }
+				);
+			} else {
+				await Reservations.create(document);
+			}
+		}
 
 		const newRecords = data.filter((item) => {
 			const itemNumber = item.BookingIDExternal_reference_ID.toString().trim();
@@ -745,7 +806,9 @@ exports.agodaDataDump = async (req, res) => {
 				);
 				const pickedRoomsType = group.map((item) => ({
 					room_type: item.RoomType,
-					chosenPrice: item.Total_inclusive_rate / daysOfResidence || 0,
+					chosenPrice:
+						(Number(item.Total_inclusive_rate) + Number(item.Commission)) /
+							daysOfResidence || 0,
 					count: 1, // Assuming each record is for one room
 				}));
 
@@ -768,7 +831,9 @@ exports.agodaDataDump = async (req, res) => {
 					cancel_reason: firstItem.CancellationPolicyDescription || "",
 					booked_at: new Date(firstItem.BookedDate),
 					sub_total: firstItem.Total_inclusive_rate,
-					total_amount: firstItem.Total_inclusive_rate,
+					total_amount:
+						Number(firstItem.Total_inclusive_rate) +
+						Number(firstItem.Commission),
 					currency: firstItem.Currency,
 					checkin_date: new Date(firstItem.StayDateFrom),
 					checkout_date: new Date(firstItem.StayDateTo),
@@ -834,6 +899,51 @@ exports.expediaDataDump = async (req, res) => {
 			booking_source: "expedia",
 			hotelId: accountId,
 		}).distinct("confirmation_number");
+
+		for (const item of data) {
+			const itemNumber = item["book number"]?.toString().trim();
+			if (!itemNumber) continue; // Skip if there's no book number
+
+			// Prepare the document based on your mapping, including any necessary calculations
+			const document = {
+				confirmation_number: item["Confirmation #"] || item["Reservation ID"],
+				booking_source: "expedia",
+				customer_details: {
+					name: item.Guest || "", // Assuming 'Guest' contains the full name
+				},
+				state: "confirmed",
+				reservation_status: item.Status.toLowerCase(),
+				total_guests: 1, // Defaulting to 1 as specific guest count might not be available
+				total_rooms: group.length, // The number of items in the group
+				booked_at: new Date(item.Booked),
+				sub_total: item["Booking amount"],
+				total_amount: item["Booking amount"],
+				currency: "SAR", // Default to SAR if currency is not provided in the file
+				checkin_date: checkInDate,
+				checkout_date: checkOutDate,
+				days_of_residence: daysOfResidence,
+				comment: item["Special Request"] || "", // Replace with the actual column name if different
+				payment: item["Payment type"].toLowerCase(),
+				commision: firstItem.Commission, // Ensure this field exists in your schema
+				hotelId: accountId,
+				belongsTo: userId,
+			};
+
+			const existingReservation = await Reservations.findOne({
+				confirmation_number: itemNumber,
+				booking_source: "booking.com",
+				hotelId: accountId,
+			});
+
+			if (existingReservation) {
+				await Reservations.updateOne(
+					{ confirmation_number: itemNumber },
+					{ $set: document }
+				);
+			} else {
+				await Reservations.create(document);
+			}
+		}
 
 		const newRecords = data.filter((item) => {
 			const confirmationNumber = item["Confirmation #"]
@@ -954,6 +1064,56 @@ exports.bookingDataDump = async (req, res) => {
 			return newItem;
 		});
 
+		for (const item of data) {
+			const itemNumber = item["book number"]?.toString().trim();
+			if (!itemNumber) continue; // Skip if there's no book number
+
+			// Prepare the document based on your mapping, including any necessary calculations
+			const document = {
+				booking_source: "booking.com",
+				hotelId: accountId,
+				belongsTo: userId,
+				confirmation_number: itemNumber,
+				customer_details: {
+					name: item["guest name(s)"] || "",
+				},
+				reservation_status: item.status,
+				total_guests: item.people || 1,
+				total_rooms: item.rooms || 1,
+				booked_at: parseDate(item["booked on"]),
+				checkin_date: parseDate(item["check-in"]),
+				checkout_date: parseDate(item["check-out"]),
+				sub_total: parsePrice(item.price || "0"),
+				total_amount:
+					parsePrice(item.price || "0") +
+					parsePrice(item["commission amount"] || "0"),
+				currency: "SAR",
+				days_of_residence: calculateDaysOfResidence(
+					item["check-in"],
+					item["check-out"]
+				),
+				comment: item.remarks || "",
+				booking_comment: item.remarks || "",
+				payment: item["payment status"] || "Not Paid",
+				commission: parsePrice(item["commission amount"] || "0"),
+			};
+
+			const existingReservation = await Reservations.findOne({
+				confirmation_number: itemNumber,
+				booking_source: "booking.com",
+				hotelId: accountId,
+			});
+
+			if (existingReservation) {
+				await Reservations.updateOne(
+					{ confirmation_number: itemNumber },
+					{ $set: document }
+				);
+			} else {
+				await Reservations.create(document);
+			}
+		}
+
 		// Filter out data that has confirmation numbers already in the database
 		const existingConfirmationNumbers = await Reservations.find({
 			booking_source: "booking.com",
@@ -1022,7 +1182,9 @@ exports.bookingDataDump = async (req, res) => {
 				);
 
 				const pickedRoomsType = group.map((item) => {
-					const price = parsePrice(item.price);
+					const price = parsePrice(
+						Number(item.price) + parsePrice(Number(item.commission))
+					);
 
 					const chosenPrice = daysOfResidence > 0 ? price / daysOfResidence : 0;
 
@@ -1084,11 +1246,12 @@ exports.bookingDataDump = async (req, res) => {
 					booked_at: bookedAt,
 					checkin_date: checkInDate,
 					checkout_date: checkOutDate,
-					sub_total: totalAmount - commission,
-					total_amount: totalAmount,
+					sub_total: totalAmount,
+					total_amount: Number(totalAmount) + Number(commission),
 					currency: "SAR", // Adjust as needed
 					days_of_residence: daysOfResidence,
 					comment: firstItem.remarks || "",
+					booking_comment: firstItem.remarks || "",
 					payment: firstItem["payment status"]
 						? firstItem["payment status"]
 						: "Not Paid",
