@@ -23,7 +23,9 @@ const reservationsSchema = new mongoose.Schema(
 			trim: true,
 			lowercase: true,
 			required: true,
+			unique: true,
 		},
+
 		pms_number: {
 			type: String, //could be left blank
 			trim: true,
