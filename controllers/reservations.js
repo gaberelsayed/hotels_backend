@@ -1164,8 +1164,6 @@ exports.bookingDataDump = async (req, res) => {
 						},
 					}
 				);
-			} else {
-				await Reservations.create(document);
 			}
 		}
 
