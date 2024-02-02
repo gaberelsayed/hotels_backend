@@ -1081,6 +1081,14 @@ exports.bookingDataDump = async (req, res) => {
 			return isNaN(date.getTime()) ? null : date;
 		};
 
+		const parsePrice = (priceString) => {
+			// Check if the priceString is not undefined and is a string
+			if (typeof priceString === "string" || priceString instanceof String) {
+				return parseFloat(priceString.replace(/[^\d.-]/g, ""));
+			}
+			return 0; // Return 0 or some default value if the priceString is not a valid string
+		};
+
 		for (const item of data) {
 			const itemNumber = item["book number"]?.toString().trim();
 			if (!itemNumber) continue; // Skip if there's no book number
