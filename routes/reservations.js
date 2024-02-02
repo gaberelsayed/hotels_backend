@@ -29,6 +29,7 @@ const {
 	monthovermonth,
 	bookingSource,
 	reservationstatus,
+	sendReservationEmail,
 } = require("../controllers/reservations");
 
 router.post(
@@ -95,6 +96,7 @@ router.post(
 
 router.get("/reservations2/:accountId", reservationsList2);
 router.put("/reservation-update/:reservationId", updateReservation);
+router.post("/send-reservation-email", sendReservationEmail);
 
 //Reports
 router.get("/dayoverday/:hotelId/:userMainId", dayoverday);

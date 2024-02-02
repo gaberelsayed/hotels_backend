@@ -5,6 +5,8 @@ const fetch = require("node-fetch");
 const Rooms = require("../models/rooms");
 const xlsx = require("xlsx");
 const sgMail = require("@sendgrid/mail");
+const puppeteer = require("puppeteer");
+const { confirmationEmail, reservationUpdate } = require("./assets");
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
@@ -41,156 +43,69 @@ function ensureUniqueNumber(model, fieldName, callback) {
 	});
 }
 
-exports.create = (req, res) => {
-	// Function to handle the final saving process
+const createPdfBuffer = async (html) => {
+	const browser = await puppeteer.launch({
+		headless: "new", // Opt into the new headless mode
+	});
+	const page = await browser.newPage();
+	await page.setContent(html, { waitUntil: "networkidle0" });
+	const pdfBuffer = await page.pdf({ format: "A4" });
+	await browser.close();
+	return pdfBuffer;
+};
+
+const sendEmailWithPdf = async (reservationData) => {
+	// Dynamically generating HTML content for the email body and PDF
+	const htmlContent = confirmationEmail(reservationData);
+	const pdfBuffer = await createPdfBuffer(htmlContent);
+
+	const FormSubmittionEmail = {
+		to: reservationData.customer_details.email,
+		from: "noreply@janatbooking.com",
+		// cc: [
+		// 	{ email: "ayed.hotels@gmail.com" },
+		// 	{ email: "zaerhotel@gmail.com" },
+		// 	{ email: "3yedhotel@gmail.com" },
+		// 	{ email: "morazzakhamouda@gmail.com" },
+		// ],
+		bcc: [
+			{ email: "ayed.hotels@gmail.com" },
+			{ email: "zaerhotel@gmail.com" },
+			{ email: "3yedhotel@gmail.com" },
+			{ email: "morazzakhamouda@gmail.com" },
+			{ email: "ahmed.abdelrazak@infinite-apps.com" },
+		],
+		subject: `Janat Booking - Reservation Confirmation`,
+		html: htmlContent,
+		attachments: [
+			{
+				content: pdfBuffer.toString("base64"),
+				filename: "Reservation_Confirmation.pdf",
+				type: "application/pdf",
+				disposition: "attachment",
+			},
+		],
+	};
+
+	try {
+		await sgMail.send(FormSubmittionEmail);
+	} catch (error) {
+		console.error("Error sending email with PDF", error);
+		// Handle error appropriately
+	}
+};
+
+exports.create = async (req, res) => {
 	console.log(req.body.sendEmail, "req.body.sendEmail");
 	console.log(req.body.hotelName, "req.body.hotelName");
+
 	const saveReservation = async (reservationData) => {
 		const reservations = new Reservations(reservationData);
 		try {
 			const data = await reservations.save();
 			res.json({ data });
 			if (req.body.sendEmail) {
-				const FormSubmittionEmail = {
-					to: reservationData.customer_details.email,
-					from: "noreply@janatbooking.com",
-					// cc: [
-					// 	{ email: "ayed.hotels@gmail.com" },
-					// 	{ email: "zaerhotel@gmail.com" },
-					// 	{ email: "3yedhotel@gmail.com" },
-					// 	{ email: "morazzakhamouda@gmail.com" },
-					// ],
-					bcc: [
-						{ email: "ayed.hotels@gmail.com" },
-						{ email: "zaerhotel@gmail.com" },
-						{ email: "3yedhotel@gmail.com" },
-						{ email: "morazzakhamouda@gmail.com" },
-						{ email: "ahmed.abdelrazak@infinite-apps.com" },
-					],
-					subject: `Janat Booking - Reservation Confirmation`,
-					html: `
-						<!DOCTYPE html>
-						<html lang="en">
-						<head>
-						<meta charset="UTF-8">
-						<meta name="viewport" content="width=device-width, initial-scale=1.0">
-						<title>Reservation Confirmation</title>
-						<style>
-							body {
-								font-family: Arial, sans-serif;
-								margin: 0;
-								padding: 0;
-								background-color: #c5ddf6;
-							}
-							.container {
-								background-color: #fff;
-								width: 100%;
-								max-width: 600px;
-								margin: 0 auto;
-								padding: 20px;
-							}
-							.header {
-								background: #ff6f61;
-								color: white;
-								padding: 10px;
-								text-align: center;
-							}
-							.content {
-								padding-right: 20px;
-								padding-left: 20px;
-								text-align: left;
-							}
-							.footer {
-								background: #ddd;
-								padding: 10px;
-								text-align: center;
-								font-size: 14px;
-								font-weight: bold;
-							}
-
-							.roomType {
-								font-weight: bold;
-								text-transform: capitalize;
-							}
-
-							table {
-								width: 100%;
-								border-collapse: collapse;
-							}
-							th, td {
-								border: 1px solid #ddd;
-								padding: 8px;
-								text-align: left;
-							}
-							th {
-								background-color: #ff6f61;
-								color: white;
-							}
-					
-							h2 {
-								font-weight: bold;
-								font-size: 1.5rem;
-							}
-
-							strong {
-								font-weight: bold;
-							}
-					
-						</style>
-						</head>
-						<body>
-						<div class="container">
-							<div class="header">
-								<h1>New Reservation</h1>
-							</div>
-							<div>
-								<h2>${reservationData.hotelName.toUpperCase()} Hotel</h2>
-							</div>
-							<div class="content">
-								<p><strong>Guest Name:</strong> ${reservationData.customer_details.name}</p>
-								<p><strong>Confirmation Number:</strong> ${
-									reservationData.confirmation_number
-								}</p>
-								<p><strong>Country:</strong> ${reservationData.customer_details.nationality}</p>
-								<table>
-									<tr>
-										<th>Room Type</th>
-										<td class="roomType">${reservationData.pickedRoomsType
-											.map((room) => room.room_type)
-											.join(", ")}</td>
-									</tr>
-									<tr>
-										<th>Check-in Date</th>
-										<td>${reservationData.checkin_date}</td>
-									</tr>
-									<tr>
-										<th>Check-out Date</th>
-										<td>${reservationData.checkout_date}</td>
-									</tr>
-									<tr>
-										<th>Guest Count</th>
-										<td>${reservationData.total_guests}</td>
-									</tr>
-									<tr>
-										<th>Order Total</th>
-										<td>${reservationData.total_amount.toLocaleString()}</td>
-									</tr>
-									<!-- Add more rows as needed -->
-								</table>
-								<p><strong>Booking Date:</strong> ${new Date(
-									reservationData.booked_at
-								).toDateString()}</p>
-								<!-- Add more details from reservationData as needed -->
-							</div>
-							<div class="footer">
-								<p>Thank you for booking with us!</p>
-							</div>
-						</div>
-						</body>
-						</html>
-							`,
-				};
-				sgMail.send(FormSubmittionEmail);
+				await sendEmailWithPdf(reservationData);
 			}
 		} catch (err) {
 			console.log(err, "err");
@@ -200,26 +115,40 @@ exports.create = (req, res) => {
 		}
 	};
 
-	// Check if the confirmation_number is provided in the request body
 	if (!req.body.confirmation_number) {
-		// Generate unique confirmation_number
 		ensureUniqueNumber(
 			Reservations,
 			"confirmation_number",
-			(err, uniqueNumber) => {
+			async (err, uniqueNumber) => {
 				if (err) {
 					return res
 						.status(500)
 						.json({ error: "Error checking for unique number" });
 				}
 				req.body.confirmation_number = uniqueNumber;
-				// Proceed to save reservation
 				saveReservation(req.body);
 			}
 		);
 	} else {
-		// Proceed to save reservation
 		saveReservation(req.body);
+	}
+};
+
+exports.sendReservationEmail = async (req, res) => {
+	const reservationData = req.body; // Assuming the reservation ID is sent in the request body
+	// Fetch the reservation data based on reservationId
+	// This is a placeholder, replace it with your actual data fetching logic
+
+	if (!reservationData) {
+		return res.status(404).json({ error: "Reservation not found" });
+	}
+
+	try {
+		await sendEmailWithPdf(reservationData);
+		res.json({ message: "Email sent successfully" });
+	} catch (error) {
+		console.error("Error sending email:", error);
+		res.status(500).json({ error: "Failed to send email" });
 	}
 };
 
@@ -367,112 +296,6 @@ function calculateDaysBetweenDates(startDate, endDate) {
 	const end = new Date(endDate);
 	return (end - start) / (1000 * 60 * 60 * 24);
 }
-
-// Main function to save reservations from channel manager
-exports.saveReservationsChannelManager = async (req, res) => {
-	const token = process.env.HOTEL_RUNNER_TOKEN;
-	const hrId = process.env.HR_ID;
-	const hotelId = req.params.hotelId;
-	const belongsTo = req.params.belongsTo;
-	let currentPage = parseInt(req.params.page, 10);
-
-	try {
-		let allProcessedReservations = [];
-
-		// Loop to fetch and process reservations
-		for (let i = 0; i < 5; i++) {
-			const queryParams = new URLSearchParams({
-				token: token,
-				hr_id: hrId,
-				undelivered: "false",
-				modified: "false",
-				per_page: 15,
-				page: currentPage - i,
-			}).toString();
-
-			const url = `https://app.hotelrunner.com/api/v2/apps/reservations?${queryParams}`;
-
-			const apiResponse = await fetch(url);
-			if (!apiResponse.ok) {
-				throw new Error(`HTTP error! status: ${apiResponse.status}`);
-			}
-			const data = await apiResponse.json();
-
-			if (!data.reservations || data.reservations.length === 0) {
-				continue; // Skip to next iteration if no reservations
-			}
-
-			const reservationPromises = data.reservations.map(async (reservation) => {
-				const mappedReservation = mapHotelRunnerResponseToSchema(reservation);
-				mappedReservation.belongsTo = belongsTo;
-				mappedReservation.hotelId = hotelId;
-
-				// Check for existing reservation
-				const existingReservation = await Reservations.findOne({
-					$or: [
-						{ confirmation_number: mappedReservation.confirmation_number },
-						{ reservation_id: mappedReservation.reservation_id },
-					],
-				});
-
-				// Save new reservation if it does not exist
-				if (!existingReservation) {
-					return new Reservations(mappedReservation).save();
-				}
-			});
-
-			// Concatenate processed reservations
-			const processedReservations = await Promise.all(reservationPromises);
-			allProcessedReservations = allProcessedReservations.concat(
-				processedReservations.filter(Boolean)
-			);
-		}
-
-		// Return response
-		res.json({
-			message: "Reservations processed successfully",
-			processedReservations: allProcessedReservations,
-		});
-	} catch (error) {
-		console.error("API request error:", error);
-		res
-			.status(500)
-			.json({ error: "Error fetching and processing reservations" });
-	}
-};
-
-exports.singleReservationHotelRunner = (req, res) => {
-	const token = process.env.HOTEL_RUNNER_TOKEN;
-	const hrId = process.env.HR_ID;
-	const reservationNumber = req.params.reservationNumber;
-
-	const queryParams = new URLSearchParams({
-		token: token,
-		hr_id: hrId,
-		undelivered: "false", // Assuming 'false' will include all reservations
-		modified: "false", // Assuming 'false' will not filter out unmodified reservations
-		per_page: "1", // Example: Adjust as needed based on the maximum allowed by the API
-		reservation_number: reservationNumber,
-		// You can add more parameters here as required.
-	}).toString();
-
-	const url = `https://app.hotelrunner.com/api/v2/apps/reservations?${queryParams}`;
-
-	fetch(url)
-		.then((apiResponse) => {
-			if (!apiResponse.ok) {
-				throw new Error(`HTTP error! status: ${apiResponse.status}`);
-			}
-			return apiResponse.json();
-		})
-		.then((data) => {
-			res.json(data); // Send back the data received from the HotelRunner API
-		})
-		.catch((error) => {
-			console.error("API request error:", error);
-			res.status(500).json({ error: "Error fetching reservations" });
-		});
-};
 
 exports.getListOfReservations = async (req, res) => {
 	try {
@@ -730,31 +553,81 @@ exports.reservationsList2 = (req, res) => {
 		});
 };
 
-exports.updateReservation = (req, res) => {
+const sendEmailUpdate = async (reservationData, hotelName) => {
+	// Dynamically generating HTML content for the email body and PDF
+	const htmlContent = reservationUpdate(reservationData, hotelName);
+	const pdfBuffer = await createPdfBuffer(htmlContent);
+
+	const FormSubmittionEmail = {
+		to: reservationData.customer_details.email,
+		from: "noreply@janatbooking.com",
+		// cc: [
+		// 	{ email: "ayed.hotels@gmail.com" },
+		// 	{ email: "zaerhotel@gmail.com" },
+		// 	{ email: "3yedhotel@gmail.com" },
+		// 	{ email: "morazzakhamouda@gmail.com" },
+		// ],
+		bcc: [
+			{ email: "ayed.hotels@gmail.com" },
+			{ email: "zaerhotel@gmail.com" },
+			{ email: "3yedhotel@gmail.com" },
+			{ email: "morazzakhamouda@gmail.com" },
+			{ email: "ahmed.abdelrazak@infinite-apps.com" },
+		],
+		subject: `Janat Booking - Reservation Update`,
+		html: htmlContent,
+		attachments: [
+			{
+				content: pdfBuffer.toString("base64"),
+				filename: "Reservation_Update.pdf",
+				type: "application/pdf",
+				disposition: "attachment",
+			},
+		],
+	};
+
+	try {
+		await sgMail.send(FormSubmittionEmail);
+	} catch (error) {
+		console.error("Error sending email with PDF", error);
+		// Handle error appropriately
+	}
+};
+
+exports.updateReservation = async (req, res) => {
 	const reservationId = req.params.reservationId;
 	const updateData = req.body;
 
-	// Validate reservationId if necessary
+	console.log(updateData, "update Data");
 
-	// Update the reservation document
-	Reservations.findByIdAndUpdate(
-		reservationId,
-		updateData,
-		{ new: true }, // returns the updated document
-		(err, updatedReservation) => {
-			if (err) {
-				// Handle possible errors
-				console.error(err);
-				return res.status(500).send({ error: "Internal server error" });
-			}
+	// Assuming validation of reservationId and updateData is done beforehand
+
+	Reservations.findByIdAndUpdate(reservationId, updateData, { new: true })
+		.then(async (updatedReservation) => {
 			if (!updatedReservation) {
-				// Handle the case where no reservation is found with the given ID
-				return res.status(404).send({ error: "Reservation not found" });
+				return res.status(404).json({ error: "Reservation not found" });
 			}
-			// Successfully updated
-			res.json(updatedReservation);
-		}
-	);
+
+			// Prepare and send the update email
+			try {
+				await sendEmailUpdate(updatedReservation, updateData.hotelName); // Make sure updatedReservation has the expected structure for your email template
+				res.json({
+					message: "Reservation updated and email sent successfully",
+					reservation: updatedReservation,
+				});
+			} catch (error) {
+				console.error("Error sending update email:", error);
+				// Decide how you want to handle email errors - maybe just log or send a different response
+				res.status(500).json({
+					message: "Reservation updated, but failed to send email",
+					error: error.toString(),
+				});
+			}
+		})
+		.catch((err) => {
+			console.error("Error updating reservation:", err);
+			res.status(500).json({ error: "Internal server error" });
+		});
 };
 
 exports.deleteDataSource = async (req, res) => {
