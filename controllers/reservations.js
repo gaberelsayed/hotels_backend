@@ -188,6 +188,7 @@ exports.reservationSearchAllList = async (req, res) => {
 				{ confirmation_number: searchPattern },
 				{ reservation_id: searchPattern },
 				{ reservation_status: searchPattern },
+				{ booking_source: searchPattern },
 			],
 		};
 
@@ -711,20 +712,27 @@ exports.agodaDataDump = async (req, res) => {
 		const sheetName = workbook.SheetNames[0];
 		const sheet = workbook.Sheets[sheetName];
 		const data = xlsx.utils.sheet_to_json(sheet); // Convert the sheet data to JSON
-		// Filter out data that has confirmation numbers already in the database
-		const existingConfirmationNumbers = await Reservations.find({
-			booking_source: "agoda",
-			hotelId: accountId,
-		}).distinct("confirmation_number");
 
 		for (const item of data) {
-			const itemNumber = item["book number"]?.toString().trim();
+			const itemNumber = item["BookingIDExternal_reference_ID"]
+				?.toString()
+				.trim();
 			if (!itemNumber) continue; // Skip if there's no book number
 
 			const daysOfResidence = calculateDaysOfResidence(
 				item.StayDateFrom,
 				item.StayDateTo
 			);
+
+			const pickedRoomsType = [
+				{
+					room_type: item.RoomType,
+					chosenPrice:
+						(Number(item.Total_inclusive_rate) + Number(item.Commission)) /
+							daysOfResidence || 0,
+					count: 1,
+				}, // Assuming each record is for one room
+			];
 
 			// Prepare the document based on your mapping, including any necessary calculations
 			const document = {
@@ -739,8 +747,11 @@ exports.agodaDataDump = async (req, res) => {
 				state: "confirmed",
 				reservation_status: item.Status.toLowerCase().includes("cancelled")
 					? "cancelled"
+					: item.Status.toLowerCase().includes("show")
+					? "no_show"
 					: item.Status,
 				total_guests: item.No_of_adult + (item.No_of_children || 0),
+				total_rooms: 1, // The number of items in the group
 				cancel_reason: item.CancellationPolicyDescription || "",
 				booked_at: new Date(item.BookedDate),
 				sub_total: item.Total_inclusive_rate,
@@ -773,123 +784,62 @@ exports.agodaDataDump = async (req, res) => {
 							reservation_status:
 								document.reservation_status === "cancelled"
 									? "cancelled"
+									: document.reservation_status === "no_show"
+									? "no_show"
 									: existingReservation.reservation_status,
 						},
 					}
 				);
 			} else {
-				await Reservations.create(document);
+				try {
+					await Reservations.create(document);
+				} catch (error) {
+					if (error.code === 11000) {
+						// Check for duplicate key error
+						// console.log(
+						// 	`Skipping duplicate document for confirmation_number: ${itemNumber}`
+						// );
+						continue; // Skip to the next item
+					} else {
+						throw error; // Rethrow if it's not a duplicate key error
+					}
+				}
 			}
 		}
 
-		const newRecords = data.filter((item) => {
-			const itemNumber = item.BookingIDExternal_reference_ID.toString().trim();
-			return !existingConfirmationNumbers.includes(itemNumber);
+		res.status(200).json({
+			message: "Data has been updated and uploaded successfully.",
 		});
-
-		newRecords.forEach((item) => {
-			const itemNumber = item.BookingIDExternal_reference_ID.toString().trim();
-			if (existingConfirmationNumbers.includes(itemNumber)) {
-				console.log(`Duplicate found: ${itemNumber}`);
-			} else {
-				// console.log(`New entry: ${itemNumber}`);
-			}
-		});
-
-		// Group data by confirmation_number to handle potential duplicate entries
-		const groupedByConfirmation = newRecords.reduce((acc, item) => {
-			const key = item.BookingIDExternal_reference_ID;
-			if (!acc[key]) {
-				acc[key] = [];
-			}
-			acc[key].push(item);
-			return acc;
-		}, {});
-
-		// Transform grouped data into reservations
-		const transformedData = Object.values(groupedByConfirmation).map(
-			(group) => {
-				// Calculate total price per room type per day
-				const daysOfResidence = calculateDaysOfResidence(
-					group[0].StayDateFrom,
-					group[0].StayDateTo
-				);
-				const pickedRoomsType = group.map((item) => ({
-					room_type: item.RoomType,
-					chosenPrice:
-						(Number(item.Total_inclusive_rate) + Number(item.Commission)) /
-							daysOfResidence || 0,
-					count: 1, // Assuming each record is for one room
-				}));
-
-				// Pick the first item in the group to represent the common fields
-				const firstItem = group[0];
-
-				return {
-					confirmation_number: firstItem.BookingIDExternal_reference_ID,
-					booking_source: "agoda",
-					customer_details: {
-						name: firstItem.Customer_Name, // Concatenated first name and last name if available
-						nationality: firstItem.Customer_Nationality,
-						phone: firstItem.Customer_Phone || "",
-						email: firstItem.Customer_Email || "",
-					},
-					state: "confirmed",
-					reservation_status: firstItem.Status.toLowerCase(),
-					total_guests: firstItem.No_of_adult + (firstItem.No_of_children || 0),
-					total_rooms: group.length, // The number of items in the group
-					cancel_reason: firstItem.CancellationPolicyDescription || "",
-					booked_at: new Date(firstItem.BookedDate),
-					sub_total: firstItem.Total_inclusive_rate,
-					total_amount:
-						Number(firstItem.Total_inclusive_rate) +
-						Number(firstItem.Commission),
-					currency: firstItem.Currency,
-					checkin_date: new Date(firstItem.StayDateFrom),
-					checkout_date: new Date(firstItem.StayDateTo),
-					days_of_residence: daysOfResidence,
-					comment: firstItem.Special_Request || "",
-					commision: firstItem.Commission, // Note the misspelling of 'commission' here
-					payment: firstItem.PaymentModel.toLowerCase(),
-					pickedRoomsType,
-					hotelId: accountId,
-					belongsTo: userId,
-				};
-			}
-		);
-
-		if (transformedData.length > 0) {
-			await Reservations.insertMany(transformedData);
-			res.status(200).json({ message: "Agoda Data imported successfully" });
-		} else {
-			res.status(200).json({ message: "No new data to import" });
-		}
 	} catch (error) {
 		console.error("Error in agodaDataDump:", error);
 		res.status(500).json({ error: "Internal Server Error" });
 	}
 };
 
-const parseDate = (excelDate, country) => {
-	// Check if excelDate is a number (Excel's serial date format)
-	if (!isNaN(excelDate) && typeof excelDate === "number") {
-		// Convert Excel's serial date to JavaScript Date
-		const date = new Date(Math.round((excelDate - 25569) * 86400 * 1000));
-		// Adjust timezone offset
-		const offset = date.getTimezoneOffset();
-		const adjustedDate = new Date(date.getTime() - offset * 60 * 1000);
-		return adjustedDate;
-	} else {
-		// Assume dateString is in the format of "mm/dd/yyyy" or "dd/mm/yyyy"
-		const parts = String(excelDate).split("/");
+const parseDate = (dateInput, country) => {
+	// Check if dateInput is an Excel serial date number
+	if (typeof dateInput === "number") {
+		const excelEpoch = new Date(1899, 11, 30); // Excel's base date (December 30, 1899)
+		const parsedDate = new Date(excelEpoch.getTime() + dateInput * 86400000);
+		const offset = parsedDate.getTimezoneOffset();
+		return new Date(parsedDate.getTime() - offset * 60000);
+	}
+	// Check for ISO 8601 date string
+	else if (typeof dateInput === "string" && dateInput.includes("T")) {
+		return new Date(dateInput);
+	}
+	// Assume dateInput is a "dd/mm/yyyy" or "mm/dd/yyyy" format string
+	else if (typeof dateInput === "string") {
+		const parts = dateInput.split("/");
 		let day, month, year;
 		if (country === "US") {
-			[month, day, year] = parts.map((part) => parseInt(part, 10));
+			[month, day, year] = parts.map(Number);
 		} else {
-			[day, month, year] = parts.map((part) => parseInt(part, 10));
+			[day, month, year] = parts.map(Number);
 		}
 		return new Date(year, month - 1, day);
 	}
+	return null; // Return null if none of the above conditions are met
 };
 
 exports.expediaDataDump = async (req, res) => {
@@ -903,20 +853,51 @@ exports.expediaDataDump = async (req, res) => {
 		const sheet = workbook.Sheets[sheetName];
 		const data = xlsx.utils.sheet_to_json(sheet); // Convert the sheet data to JSON
 
-		console.log(country, "country");
-		// Filter out data that has confirmation numbers already in the database
-		const existingConfirmationNumbers = await Reservations.find({
-			booking_source: "expedia",
-			hotelId: accountId,
-		}).distinct("confirmation_number");
+		const calculateDaysOfResidence = (checkIn, checkOut) => {
+			const checkInDate = new Date(checkIn);
+			const checkOutDate = new Date(checkOut);
+
+			// Validate if both dates are valid
+			if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
+				return 0; // Return a default value (e.g., 0) if dates are invalid
+			}
+
+			return (checkOutDate - checkInDate) / (1000 * 3600 * 24); // Calculating difference in days
+		};
 
 		for (const item of data) {
-			const itemNumber = item["book number"]?.toString().trim();
+			const itemNumber = item["Reservation ID"]?.toString().trim();
 			if (!itemNumber) continue; // Skip if there's no book number
+
+			const daysOfResidence = calculateDaysOfResidence(
+				item["check-in"],
+				item["check-out"]
+			);
+
+			const pickedRoomsType = [
+				{
+					room_type: item["Room"],
+					chosenPrice: item["Booking amount"] / daysOfResidence || 0,
+					count: 1, // Assuming each record is for one room. Adjust accordingly if you have more details.
+				},
+			];
+
+			// Use the parseDate function for date fields
+			const bookedAt = parseDate(item["Booked"]);
+			const checkInDate = parseDate(item["Check-in"], country);
+			const checkOutDate = parseDate(item["Check-out"], country);
+
+			// console.log(item, "item");
+
+			// Check for valid dates before proceeding
+			if (!bookedAt || !checkInDate || !checkOutDate) {
+				console.error(`Invalid date found in record: ${JSON.stringify(item)}`);
+				continue; // Skip this item if dates are invalid
+			}
 
 			// Prepare the document based on your mapping, including any necessary calculations
 			const document = {
-				confirmation_number: item["Confirmation #"] || item["Reservation ID"],
+				confirmation_number: item["Reservation ID"] || item["Confirmation #"],
 				booking_source: "expedia",
 				customer_details: {
 					name: item.Guest || "", // Assuming 'Guest' contains the full name
@@ -924,19 +905,23 @@ exports.expediaDataDump = async (req, res) => {
 				state: "confirmed",
 				reservation_status: item.Status.toLowerCase().includes("cancelled")
 					? "cancelled"
+					: item.Status.toLowerCase().includes("show")
+					? "no_show"
 					: item.Status,
-				total_guests: 1, // Defaulting to 1 as specific guest count might not be available
-				total_rooms: group.length, // The number of items in the group
-				booked_at: new Date(item.Booked),
-				sub_total: item["Booking amount"],
-				total_amount: item["Booking amount"],
-				currency: "SAR", // Default to SAR if currency is not provided in the file
+				total_guests: item.total_guests || 1, // Total number of guests
+				total_rooms: item["rooms"], // The number of items in the group
+				booked_at: bookedAt,
 				checkin_date: checkInDate,
 				checkout_date: checkOutDate,
+				sub_total: item["Booking amount"],
+				total_amount: item["Booking amount"],
+				currency: "SAR", // Adjust as needed
 				days_of_residence: daysOfResidence,
-				comment: item["Special Request"] || "", // Replace with the actual column name if different
+				comment: item["Special Request"] || "",
+				booking_comment: item["Special Request"] || "", // Replace with the actual column name if different
 				payment: item["Payment type"].toLowerCase(),
-				commision: firstItem.Commission, // Ensure this field exists in your schema
+				pickedRoomsType,
+				commision: item.Commission, // Ensure this field exists in your schema
 				hotelId: accountId,
 				belongsTo: userId,
 			};
@@ -956,107 +941,187 @@ exports.expediaDataDump = async (req, res) => {
 							reservation_status:
 								document.reservation_status === "cancelled"
 									? "cancelled"
+									: document.reservation_status === "no_show"
+									? "no_show"
 									: existingReservation.reservation_status,
 						},
 					}
 				);
 			} else {
-				await Reservations.create(document);
-			}
-		}
-
-		const newRecords = data.filter((item) => {
-			const confirmationNumber = item["Confirmation #"]
-				? item["Confirmation #"].toString().trim()
-				: item["Reservation ID"].toString().trim();
-			return !existingConfirmationNumbers.includes(confirmationNumber);
-		});
-
-		newRecords.forEach((item) => {
-			const confirmationNumber = item["Confirmation #"]
-				? item["Confirmation #"].toString().trim()
-				: item["Reservation ID"].toString().trim();
-			if (existingConfirmationNumbers.includes(confirmationNumber)) {
-				console.log(`Duplicate found: ${confirmationNumber}`);
-			} else {
-				// console.log(`New entry: ${confirmationNumber}`);
-			}
-		});
-
-		// Group data by confirmation_number to handle potential duplicate entries
-		const groupedByConfirmation = newRecords.reduce((acc, item) => {
-			// Use "Confirmation #" if available, otherwise fall back to "Reservation ID"
-			const key = item["Confirmation #"] || item["Reservation ID"];
-
-			if (!acc[key]) {
-				acc[key] = [];
-			}
-			acc[key].push(item);
-			return acc;
-		}, {});
-
-		// Transform grouped data into reservations
-		const transformedData = Object.values(groupedByConfirmation).map(
-			(group) => {
-				// Pick the first item in the group to represent the common fields
-				const firstItem = group[0];
-
-				// Check if Check-in and Check-out dates are available
-				if (!firstItem["Check-in"] || !firstItem["Check-out"]) {
-					console.error(
-						"Missing Check-in or Check-out date in row:",
-						firstItem
-					);
-					return null; // Skip this record or handle it appropriately
+				try {
+					await Reservations.create(document);
+				} catch (error) {
+					if (error.code === 11000) {
+						// Check for duplicate key error
+						// console.log(
+						// 	`Skipping duplicate document for confirmation_number: ${itemNumber}`
+						// );
+						continue; // Skip to the next item
+					} else {
+						throw error; // Rethrow if it's not a duplicate key error
+					}
 				}
-
-				// Calculate total price per room type per day
-				const checkInDate = parseDate(firstItem["Check-in"], country);
-				const checkOutDate = parseDate(firstItem["Check-out"], country);
-				const daysOfResidence = calculateDaysOfResidence(
-					checkInDate,
-					checkOutDate
-				);
-				const pickedRoomsType = group.map((item) => ({
-					room_type: item.Room,
-					chosenPrice: item["Booking amount"] / daysOfResidence || 0,
-					count: 1, // Assuming each record is for one room
-				}));
-
-				return {
-					confirmation_number:
-						firstItem["Confirmation #"] || firstItem["Reservation ID"],
-					booking_source: "expedia",
-					customer_details: {
-						name: firstItem.Guest || "", // Assuming 'Guest' contains the full name
-					},
-					state: "confirmed",
-					reservation_status: firstItem.Status.toLowerCase(),
-					total_guests: 1, // Defaulting to 1 as specific guest count might not be available
-					total_rooms: group.length, // The number of items in the group
-					booked_at: new Date(firstItem.Booked),
-					sub_total: firstItem["Booking amount"],
-					total_amount: firstItem["Booking amount"],
-					currency: "SAR", // Default to SAR if currency is not provided in the file
-					checkin_date: checkInDate,
-					checkout_date: checkOutDate,
-					days_of_residence: daysOfResidence,
-					comment: firstItem["Special Request"] || "", // Replace with the actual column name if different
-					payment: firstItem["Payment type"].toLowerCase(),
-					pickedRoomsType,
-					commision: firstItem.Commission, // Ensure this field exists in your schema
-					hotelId: accountId,
-					belongsTo: userId,
-				};
 			}
-		);
-
-		if (transformedData.length > 0) {
-			await Reservations.insertMany(transformedData);
-			res.status(200).json({ message: "Expedia Data imported successfully" });
-		} else {
-			res.status(200).json({ message: "No new data to import" });
 		}
+		res.status(200).json({
+			message: "Data has been updated and uploaded successfully.",
+		});
+	} catch (error) {
+		console.error("Error in expediaDataDump:", error);
+		res.status(500).json({ error: "Internal Server Error" });
+	}
+};
+
+exports.airbnb = async (req, res) => {
+	try {
+		const accountId = req.params.accountId;
+		const userId = req.params.belongsTo;
+		const country = req.params.country;
+		const filePath = req.file.path; // The path to the uploaded file
+		const workbook = xlsx.readFile(filePath);
+		const sheetName = workbook.SheetNames[0];
+		const sheet = workbook.Sheets[sheetName];
+		const data = xlsx.utils.sheet_to_json(sheet); // Convert the sheet data to JSON
+
+		const calculateDaysOfResidence = (checkIn, checkOut) => {
+			const checkInDate = new Date(checkIn);
+			const checkOutDate = new Date(checkOut);
+
+			// Validate if both dates are valid
+			if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
+				return 0; // Return a default value (e.g., 0) if dates are invalid
+			}
+
+			return (checkOutDate - checkInDate) / (1000 * 3600 * 24); // Calculating difference in days
+		};
+
+		const parseEarnings = (earningsString) => {
+			// This regular expression matches optional currency symbols and extracts digits and decimal points
+			const matches = earningsString.match(/[\d\.]+/);
+			if (matches) {
+				return parseFloat(matches[0]);
+			} else {
+				return 0; // Return 0 if no matching numeric part is found
+			}
+		};
+
+		for (const item of data) {
+			const itemNumber = item["Confirmation code"]?.toString().trim();
+			if (!itemNumber) continue; // Skip if there's no book number
+
+			let roomType = ""; // Determine roomType based on `item` details
+			const peoplePerRoom =
+				item["# of adults"] + item["# of children"] + item["# of infants"];
+			// Example logic to determine roomType
+			if (peoplePerRoom <= 1) {
+				roomType = "Single Room";
+			} else if (peoplePerRoom <= 2) {
+				roomType = "Double Room";
+			} else if (peoplePerRoom === 3) {
+				roomType = "Triple Room";
+			} else if (peoplePerRoom === 4) {
+				roomType = "Quad Room";
+			} else {
+				roomType = "Family Room";
+			} // Add more conditions as per your logic
+
+			const pickedRoomsType = [
+				{
+					room_type: roomType,
+					chosenPrice: item["Booking amount"] / item["# of nights"] || 0,
+					count: 1, // Assuming each record is for one room. Adjust accordingly if you have more details.
+				},
+			];
+
+			// Use the parseDate function for date fields
+			const bookedAt = parseDate(item["Booked"]);
+			const checkInDate = parseDate(item["Start date"], country);
+			const checkOutDate = parseDate(item["End date"], country);
+
+			// console.log(item, "item");
+
+			// Check for valid dates before proceeding
+			if (!bookedAt || !checkInDate || !checkOutDate) {
+				console.error(`Invalid date found in record: ${JSON.stringify(item)}`);
+				continue; // Skip this item if dates are invalid
+			}
+
+			// Prepare the document based on your mapping, including any necessary calculations
+			const document = {
+				confirmation_number: item["Confirmation code"],
+				booking_source: "airbnb",
+				customer_details: {
+					name: item["Guest name"] || "", // Assuming 'Guest' contains the full name
+					phone: item["Contact"] || "", // Assuming 'Guest' contains the full name
+				},
+				state: "confirmed",
+				reservation_status:
+					item.Status.toLowerCase().includes("cancelled") ||
+					item.Status.toLowerCase().includes("canceled")
+						? "cancelled"
+						: item.Status.toLowerCase().includes("show")
+						? "no_show"
+						: item.Status,
+				total_guests:
+					item["# of adults"] + item["# of children"] + item["# of infants"] ||
+					1, // Total number of guests
+				total_rooms: 1, // The number of items in the group
+				booked_at: bookedAt,
+				checkin_date: checkInDate,
+				checkout_date: checkOutDate,
+				sub_total: parseEarnings(item.Earnings),
+				total_amount: parseEarnings(item.Earnings),
+				currency: "SAR", // Adjust as needed
+				days_of_residence: item["# of nights"],
+				comment: item["Listing"] || "",
+				booking_comment: item["Listing"] || "", // Replace with the actual column name if different
+				payment: item["Payment type"],
+				pickedRoomsType,
+				commision: item.Commission ? item.Commission : 0, // Ensure this field exists in your schema
+				hotelId: accountId,
+				belongsTo: userId,
+			};
+
+			const existingReservation = await Reservations.findOne({
+				confirmation_number: itemNumber,
+				booking_source: "booking.com",
+				hotelId: accountId,
+			});
+
+			if (existingReservation) {
+				await Reservations.updateOne(
+					{ confirmation_number: itemNumber },
+					{
+						$set: {
+							...document,
+							reservation_status:
+								document.reservation_status === "cancelled"
+									? "cancelled"
+									: document.reservation_status === "no_show"
+									? "no_show"
+									: existingReservation.reservation_status,
+						},
+					}
+				);
+			} else {
+				try {
+					await Reservations.create(document);
+				} catch (error) {
+					if (error.code === 11000) {
+						// Check for duplicate key error
+						// console.log(
+						// 	`Skipping duplicate document for confirmation_number: ${itemNumber}`
+						// );
+						continue; // Skip to the next item
+					} else {
+						throw error; // Rethrow if it's not a duplicate key error
+					}
+				}
+			}
+		}
+		res.status(200).json({
+			message: "Data has been updated and uploaded successfully.",
+		});
 	} catch (error) {
 		console.error("Error in expediaDataDump:", error);
 		res.status(500).json({ error: "Internal Server Error" });
@@ -1113,36 +1178,86 @@ exports.bookingDataDump = async (req, res) => {
 			const itemNumber = item["book number"]?.toString().trim();
 			if (!itemNumber) continue; // Skip if there's no book number
 
+			const daysOfResidence = calculateDaysOfResidence(
+				item["check-in"],
+				item["check-out"]
+			);
+
+			const price =
+				Number(parsePrice(item.price)) + Number(parsePrice(item.commission));
+			const chosenPrice = daysOfResidence > 0 ? price / daysOfResidence : 0;
+
+			const peoplePerRoom = item.persons
+				? item.persons
+				: item.people / item.rooms;
+			// Assuming item['rooms'] gives the number of rooms or you have a way to determine roomType from `item`
+			let roomType = ""; // Determine roomType based on `item` details
+			// Example logic to determine roomType
+			if (peoplePerRoom <= 1) {
+				roomType = "Single Room";
+			} else if (peoplePerRoom <= 2) {
+				roomType = "Double Room";
+			} else if (peoplePerRoom === 3) {
+				roomType = "Triple Room";
+			} else if (peoplePerRoom === 4) {
+				roomType = "Quad Room";
+			} else {
+				roomType = "Family Room";
+			} // Add more conditions as per your logic
+
+			const pickedRoomsType = [
+				{
+					room_type: roomType,
+					chosenPrice: chosenPrice,
+					count: 1, // Assuming each record is for one room. Adjust accordingly if you have more details.
+				},
+			];
+
+			// ... Inside your transform logic
+			const totalAmount = parsePrice(item.price || "0 SAR"); // Provide a default string if Price is undefined
+
+			const commission = parsePrice(item["commission amount"] || "0 SAR"); // Provide a default string if Commission Amount is undefined
+
+			// Use the parseDate function for date fields
+			const bookedAt = parseDate(item["booked on"]);
+			const checkInDate = parseDate(item["check-in"]);
+			const checkOutDate = parseDate(item["check-out"]);
+
+			// Check for valid dates before proceeding
+			if (!bookedAt || !checkInDate || !checkOutDate) {
+				console.error(`Invalid date found in record: ${JSON.stringify(item)}`);
+				continue; // Skip this item if dates are invalid
+			}
+
 			// Prepare the document based on your mapping, including any necessary calculations
 			const document = {
+				confirmation_number: item["book number"] || "",
 				booking_source: "booking.com",
-				hotelId: accountId,
-				belongsTo: userId,
-				confirmation_number: itemNumber,
 				customer_details: {
-					name: item["guest name(s)"] || "",
+					name: item["guest name(s)"] || "", // Assuming 'Guest Name(s)' contains the full name
 				},
+				state: "confirmed",
 				reservation_status: item.status.toLowerCase().includes("cancelled")
 					? "cancelled"
+					: item.status.toLowerCase().includes("show")
+					? "no_show"
 					: item.status,
-				total_guests: item.people || 1,
-				total_rooms: item.rooms || 1,
-				booked_at: parseDate(item["booked on"]),
-				checkin_date: parseDate(item["check-in"]),
-				checkout_date: parseDate(item["check-out"]),
-				sub_total: parsePrice(item.price || "0"),
-				total_amount:
-					parsePrice(item.price || "0") +
-					parsePrice(item["commission amount"] || "0"),
-				currency: "SAR",
-				days_of_residence: calculateDaysOfResidence(
-					item["check-in"],
-					item["check-out"]
-				),
+				total_guests: item.people || 1, // Total number of guests
+				total_rooms: item["rooms"], // The number of items in the group
+				booked_at: bookedAt,
+				checkin_date: checkInDate,
+				checkout_date: checkOutDate,
+				sub_total: totalAmount,
+				total_amount: Number(totalAmount) + Number(commission),
+				currency: "SAR", // Adjust as needed
+				days_of_residence: daysOfResidence,
 				comment: item.remarks || "",
 				booking_comment: item.remarks || "",
-				payment: item["payment status"] || "Not Paid",
-				commission: parsePrice(item["commission amount"] || "0"),
+				payment: item["payment status"] ? item["payment status"] : "Not Paid",
+				pickedRoomsType,
+				commission: commission, // Ensure this field exists in your schema
+				hotelId: accountId,
+				belongsTo: userId,
 			};
 
 			const existingReservation = await Reservations.findOne({
@@ -1160,144 +1275,32 @@ exports.bookingDataDump = async (req, res) => {
 							reservation_status:
 								document.reservation_status === "cancelled"
 									? "cancelled"
+									: document.reservation_status === "no_show"
+									? "no_show"
 									: existingReservation.reservation_status,
 						},
 					}
 				);
-			}
-		}
-
-		// Filter out data that has confirmation numbers already in the database
-		const existingConfirmationNumbers = await Reservations.find({
-			booking_source: "booking.com",
-			hotelId: accountId, // Assuming this is how you determine ownership
-		}).distinct("confirmation_number");
-
-		const newRecords = data.filter((item) => {
-			if (!item["book number"] || item["book number"] === null) {
-				return false;
-			}
-			const itemNumber = item["book number"].toString().trim();
-			return !existingConfirmationNumbers.includes(itemNumber);
-		});
-
-		newRecords.forEach((item) => {
-			const itemNumber = item["book number"].toString().trim();
-			if (existingConfirmationNumbers.includes(itemNumber)) {
-				console.log(`Duplicate found: ${itemNumber}`);
 			} else {
-				// console.log(`New entry: ${itemNumber}`);
-			}
-		});
-
-		// Group data by confirmation_number to handle potential duplicate entries
-		const groupedByConfirmation = newRecords.reduce((acc, item) => {
-			const key = item["book number"];
-			if (!acc[key]) {
-				acc[key] = [];
-			}
-			acc[key].push(item);
-			return acc;
-		}, {});
-
-		// Transform grouped data into reservations
-		const transformedData = Object.values(groupedByConfirmation).map(
-			(group) => {
-				// Calculate total price per room type per day
-				const daysOfResidence = calculateDaysOfResidence(
-					group[0]["check-in"],
-					group[0]["check-out"]
-				);
-
-				const pickedRoomsType = group.map((item) => {
-					const price =
-						parsePrice(Number(item.price)) +
-						parsePrice(Number(item.commission));
-					const chosenPrice = daysOfResidence > 0 ? price / daysOfResidence : 0;
-
-					const peoplePerRoom = item.persons
-						? item.persons
-						: item.people / item.rooms;
-
-					let roomType = "";
-					if (peoplePerRoom <= 1) {
-						roomType = "Single Room";
-					} else if (peoplePerRoom <= 2) {
-						roomType = "Double Room";
-					} else if (peoplePerRoom === 3) {
-						roomType = "Triple Room";
-					} else if (peoplePerRoom === 4) {
-						roomType = "Quad Room";
+				try {
+					await Reservations.create(document);
+				} catch (error) {
+					if (error.code === 11000) {
+						// Check for duplicate key error
+						// console.log(
+						// 	`Skipping duplicate document for confirmation_number: ${itemNumber}`
+						// );
+						continue; // Skip to the next item
 					} else {
-						roomType = "Family Room";
+						throw error; // Rethrow if it's not a duplicate key error
 					}
-					return {
-						room_type: roomType,
-						chosenPrice: chosenPrice,
-						count: 1, // Assuming each record is for one room
-					};
-				});
-
-				// Pick the first item in the group to represent the common fields
-				const firstItem = group[0];
-
-				// ... Inside your transform logic
-				const totalAmount = parsePrice(firstItem.price || "0 SAR"); // Provide a default string if Price is undefined
-
-				const commission = parsePrice(
-					firstItem["commission amount"] || "0 SAR"
-				); // Provide a default string if Commission Amount is undefined
-
-				// Use the parseDate function for date fields
-				const bookedAt = parseDate(firstItem["booked on"]);
-				const checkInDate = parseDate(firstItem["check-in"]);
-				const checkOutDate = parseDate(firstItem["check-out"]);
-
-				if (!bookedAt || !checkInDate || !checkOutDate) {
-					console.error(
-						`Invalid date found in record: ${JSON.stringify(firstItem)}`
-					);
-					// Optionally skip this record or handle the error as needed
 				}
-
-				return {
-					confirmation_number: firstItem["book number"] || "",
-					booking_source: "booking.com",
-					customer_details: {
-						name: firstItem["guest name(s)"] || "", // Assuming 'Guest Name(s)' contains the full name
-					},
-					state: "confirmed",
-					reservation_status: firstItem.status,
-					total_guests: firstItem.people || 1, // Total number of guests
-					total_rooms: group.length, // The number of items in the group
-					booked_at: bookedAt,
-					checkin_date: checkInDate,
-					checkout_date: checkOutDate,
-					sub_total: totalAmount,
-					total_amount: Number(totalAmount) + Number(commission),
-					currency: "SAR", // Adjust as needed
-					days_of_residence: daysOfResidence,
-					comment: firstItem.remarks || "",
-					booking_comment: firstItem.remarks || "",
-					payment: firstItem["payment status"]
-						? firstItem["payment status"]
-						: "Not Paid",
-					pickedRoomsType,
-					commission: commission, // Ensure this field exists in your schema
-					hotelId: accountId,
-					belongsTo: userId,
-				};
 			}
-		);
-
-		if (transformedData.length > 0) {
-			await Reservations.insertMany(transformedData);
-			res
-				.status(200)
-				.json({ message: "Booking.com Data imported successfully" });
-		} else {
-			res.status(200).json({ message: "No new data to import" });
 		}
+
+		res.status(200).json({
+			message: "Data has been updated and uploaded successfully.",
+		});
 	} catch (error) {
 		console.error("Error in bookingDataDump:", error);
 		res.status(500).json({ error: "Internal Server Error" });

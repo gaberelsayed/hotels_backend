@@ -30,6 +30,7 @@ const {
 	bookingSource,
 	reservationstatus,
 	sendReservationEmail,
+	airbnb,
 } = require("../controllers/reservations");
 
 router.post(
@@ -87,6 +88,11 @@ router.post(
 	"/reservations/expedia-data-dump/:accountId/:belongsTo/:country",
 	upload.single("file"),
 	expediaDataDump
+);
+router.post(
+	"/reservations/airbnb-data-dump/:accountId/:belongsTo/:country",
+	upload.single("file"),
+	airbnb
 );
 router.post(
 	"/reservations/booking-data-dump/:accountId/:belongsTo",
