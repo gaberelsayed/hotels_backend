@@ -6,7 +6,11 @@ const Rooms = require("../models/rooms");
 const xlsx = require("xlsx");
 const sgMail = require("@sendgrid/mail");
 const puppeteer = require("puppeteer");
-const { confirmationEmail, reservationUpdate } = require("./assets");
+const {
+	confirmationEmail,
+	reservationUpdate,
+	emailPaymentLink,
+} = require("./assets");
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
@@ -164,6 +168,46 @@ exports.sendReservationEmail = async (req, res) => {
 	} catch (error) {
 		console.error("Error sending email:", error);
 		res.status(500).json({ error: "Failed to send email" });
+	}
+};
+
+exports.sendPaymentLinkEmail = async (req, res) => {
+	const { paymentLink, customerEmail } = req.body; // Assuming the payment link and customer's email are sent in the request body
+
+	if (!paymentLink || !customerEmail) {
+		return res
+			.status(400)
+			.json({ error: "Missing payment link or customer email" });
+	}
+
+	const emailContent = emailPaymentLink(paymentLink); // Generate the email content with the payment link
+
+	const email = {
+		to: customerEmail, // The customer's email address
+		from: "noreply@janatbooking.com",
+		// cc: [
+		// 	{ email: "ayed.hotels@gmail.com" },
+		// 	{ email: "zaerhotel@gmail.com" },
+		// 	{ email: "3yedhotel@gmail.com" },
+		// 	{ email: "morazzakhamouda@gmail.com" },
+		// ],
+		bcc: [
+			{ email: "ayed.hotels@gmail.com" },
+			{ email: "zaerhotel@gmail.com" },
+			{ email: "3yedhotel@gmail.com" },
+			{ email: "morazzakhamouda@gmail.com" },
+			{ email: "ahmed.abdelrazak@infinite-apps.com" },
+		], // Your verified sender
+		subject: "Reservation Payment Link",
+		html: emailContent, // Use the generated HTML content
+	};
+
+	try {
+		await sgMail.send(email);
+		res.json({ message: "Payment link email sent successfully" });
+	} catch (error) {
+		console.error("Error sending payment link email:", error);
+		res.status(500).json({ error: "Failed to send payment link email" });
 	}
 };
 
@@ -506,6 +550,33 @@ exports.singleReservation = (req, res) => {
 			res
 				.status(500)
 				.json({ error: "Error fetching and processing reservation" });
+		});
+};
+
+exports.singleReservationById = (req, res) => {
+	const reservationId = req.params.reservationId;
+
+	// Find a single reservation by its ID
+	Reservations.findById(reservationId)
+		.populate("hotelId")
+		.populate("belongsTo")
+		.then((reservation) => {
+			if (!reservation) {
+				return res.status(404).send({
+					message: "Reservation not found with id " + reservationId,
+				});
+			}
+			res.send(reservation);
+		})
+		.catch((err) => {
+			if (err.kind === "ObjectId") {
+				return res.status(404).send({
+					message: "Reservation not found with id " + reservationId,
+				});
+			}
+			return res.status(500).send({
+				message: "Error retrieving reservation with id " + reservationId,
+			});
 		});
 };
 

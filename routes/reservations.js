@@ -32,6 +32,8 @@ const {
 	sendReservationEmail,
 	airbnb,
 	deleteByHotelId,
+	singleReservationById,
+	sendPaymentLinkEmail,
 } = require("../controllers/reservations");
 
 router.post(
@@ -66,6 +68,11 @@ router.get(
 router.get(
 	"/reservations/single-reservation/:reservationNumber/:hotelId/:belongsTo",
 	singleReservation
+);
+
+router.get(
+	"/reservations/single-reservation/:reservationId",
+	singleReservationById
 );
 
 router.get(
@@ -105,6 +112,7 @@ router.post(
 router.get("/reservations2/:accountId", reservationsList2);
 router.put("/reservation-update/:reservationId", updateReservation);
 router.post("/send-reservation-email", sendReservationEmail);
+router.post("/send-payment-link-email", sendPaymentLinkEmail);
 
 //Reports
 router.get("/dayoverday/:hotelId/:userMainId", dayoverday);

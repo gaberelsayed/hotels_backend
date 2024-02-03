@@ -70,20 +70,24 @@ const confirmationEmail = (reservationData) => {
 											"dddd, MMMM Do YYYY"
 										)}</td>
                 </tr>
-                <tr>
-                    <th>Check-out Date</th>
-                    <td>${moment(reservationData.checkout_date).format(
-											"dddd, MMMM Do YYYY"
-										)}</td>
-                </tr>
                     <tr>
-                    <th>Nights Of Residence</th>
-                    <td>${reservationData.days_of_residence} Nights</td>
-                </tr>
+                        <th>Check-out Date</th>
+                        <td>${moment(reservationData.checkout_date).format(
+													"dddd, MMMM Do YYYY"
+												)}</td>
+                    </tr>
+                        <tr>
+                        <th>Nights Of Residence</th>
+                        <td>${reservationData.days_of_residence} Nights</td>
+                    </tr>
                     <tr>
                         <th>Guest Count</th>
                         <td>${reservationData.total_guests}</td>
                     </tr>
+                <tr>
+                    <th>Payment Status</th>
+                    <td>${reservationData.payment}</td>
+                </tr>
                     <tr>
                         <th>Order Total</th>
                         <td>${reservationData.total_amount.toLocaleString()} SAR</td>
@@ -184,10 +188,14 @@ const reservationUpdate = (reservationData, hotelName) => {
                 <th>Nights Of Residence</th>
                 <td>${reservationData.days_of_residence} Nights</td>
             </tr>
-                <tr>
-                    <th>Guest Count</th>
-                    <td>${reservationData.total_guests}</td>
-                </tr>
+            <tr>
+                <th>Guest Count</th>
+                <td>${reservationData.total_guests}</td>
+            </tr>
+            <tr>
+                <th>Payment Status</th>
+                <td>${reservationData.payment}</td>
+            </tr>
                 <tr>
                     <th>Order Total</th>
                     <td>${reservationData.total_amount.toLocaleString()} SAR</td>
@@ -208,4 +216,53 @@ const reservationUpdate = (reservationData, hotelName) => {
 	return email;
 };
 
-module.exports = { confirmationEmail, reservationUpdate };
+const emailPaymentLink = (paymentLink) => {
+	const email = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Reservation Confirmation</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #c5ddf6; }
+            .container { background-color: #fff; width: 100%; max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #ff6f61; color: white; padding: 10px; text-align: center; margin-top:50px; margin-bottom:50px; }
+            .content { padding-right: 20px; padding-left: 20px; text-align: left; }
+            .footer { background: #ddd; padding: 10px; text-align: center; font-size: 14px; font-weight: bold; }
+            .roomType { font-weight: bold; text-transform: capitalize; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #ff6f61; color: white; }
+            h2 { font-weight: bold; font-size: 1.5rem; }
+            strong { font-weight: bold; }
+            .confirmation {
+                font-size: 1rem;
+                font-weight: bold;
+            }
+            p {
+                font-size: 1.2rem;
+                font-weight: bold;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Your Payment Link</h1>
+            </div>
+            <div class="content">
+                <p>Please click <a href="${paymentLink}" target="_blank" rel="noopener noreferrer">here</a> to pay:</p>
+            </div>
+            <div class="footer">
+                <p>Thank you for booking with us!</p>
+            </div>
+        </div>
+    </body>
+    </html>
+`;
+
+	return email;
+};
+
+module.exports = { confirmationEmail, reservationUpdate, emailPaymentLink };
