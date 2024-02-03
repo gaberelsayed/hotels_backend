@@ -31,6 +31,7 @@ const {
 	reservationstatus,
 	sendReservationEmail,
 	airbnb,
+	deleteByHotelId,
 } = require("../controllers/reservations");
 
 router.post(
@@ -77,6 +78,7 @@ router.get(
 );
 
 router.delete("/reservations/delete/:source", deleteDataSource);
+router.delete("/reservations-deletion/:hotelId", deleteByHotelId);
 router.get("/reservations/summary-by-source", summaryBySource);
 
 router.post(

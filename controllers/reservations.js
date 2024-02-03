@@ -667,6 +667,27 @@ exports.deleteDataSource = async (req, res) => {
 		res.status(500).json({ error: "Internal Server Error" });
 	}
 };
+//{hotelId: ObjectId('65b640a1f33023933c22eba3')}
+exports.deleteByHotelId = async (req, res) => {
+	try {
+		// Extract the source from the request parameters
+		const hotelId = mongoose.Types.ObjectId(req.params.hotelId);
+
+		// Use the deleteMany function to remove all documents matching the source
+		const deletionResult = await Reservations.deleteMany({
+			hotelId: hotelId,
+		});
+
+		// deletionResult.deletedCount will contain the number of documents removed
+		res.status(200).json({
+			message: `${deletionResult.deletedCount} documents were deleted successfully.`,
+		});
+	} catch (error) {
+		// If an error occurs, log it and return a server error response
+		console.error("Error in deleteByHotelId:", error);
+		res.status(500).json({ error: "Internal Server Error" });
+	}
+};
 
 exports.summaryBySource = async () => {
 	try {
