@@ -75,7 +75,9 @@ const sendEmailWithPdf = async (reservationData) => {
 	const pdfBuffer = await createPdfBuffer(htmlContent);
 
 	const FormSubmittionEmail = {
-		to: reservationData.customer_details.email,
+		to: reservationData.customer_details.email
+			? reservationData.customer_details.email
+			: "ahmedabdelrazak20@gmail.com",
 		from: "noreply@janatbooking.com",
 		// cc: [
 		// 	{ email: "ayed.hotels@gmail.com" },
@@ -647,7 +649,10 @@ const sendEmailUpdate = async (reservationData, hotelName) => {
 	const pdfBuffer = await createPdfBuffer(htmlContent);
 
 	const FormSubmittionEmail = {
-		to: reservationData.customer_details.email,
+		to: reservationData.customer_details.email
+			? reservationData.customer_details.email
+			: "ahmedabdelrazak20@gmail.com",
+		from: "noreply@janatbooking.com",
 		from: "noreply@janatbooking.com",
 		// cc: [
 		// 	{ email: "ayed.hotels@gmail.com" },
@@ -788,11 +793,18 @@ exports.summaryBySource = async () => {
 };
 
 // Helper function to calculate days of residence
-function calculateDaysOfResidence(startDate, endDate) {
-	const start = new Date(startDate);
-	const end = new Date(endDate);
-	return (end - start) / (1000 * 60 * 60 * 24); // Difference in days
-}
+const calculateDaysOfResidence = (checkIn, checkOut) => {
+	const checkInDate = new Date(new Date(checkIn).setHours(0, 0, 0, 0));
+	const checkOutDate = new Date(new Date(checkOut).setHours(0, 0, 0, 0));
+
+	if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
+		return 0; // Return 0 if dates are invalid
+	}
+
+	const diffInTime = checkOutDate.getTime() - checkInDate.getTime();
+	const diffInDays = diffInTime / (1000 * 3600 * 24);
+	return diffInDays; // Return the difference in days
+};
 
 exports.agodaDataDump = async (req, res) => {
 	try {
@@ -820,8 +832,10 @@ exports.agodaDataDump = async (req, res) => {
 				{
 					room_type: item.RoomType,
 					chosenPrice:
-						(Number(item.Total_inclusive_rate) + Number(item.Commission)) /
-							daysOfResidence || 0,
+						Number(
+							(Number(item.Total_inclusive_rate) + Number(item.Commission)) /
+								daysOfResidence
+						).toFixed(2) || 0,
 					count: 1,
 				}, // Assuming each record is for one room
 			];
@@ -969,7 +983,8 @@ exports.expediaDataDump = async (req, res) => {
 			const pickedRoomsType = [
 				{
 					room_type: item["Room"],
-					chosenPrice: item["Booking amount"] / daysOfResidence || 0,
+					chosenPrice:
+						Number(item["Booking amount"] / daysOfResidence).toFixed(2) || 0,
 					count: 1, // Assuming each record is for one room. Adjust accordingly if you have more details.
 				},
 			];
@@ -1120,7 +1135,9 @@ exports.airbnb = async (req, res) => {
 			const pickedRoomsType = [
 				{
 					room_type: roomType,
-					chosenPrice: item["Booking amount"] / item["# of nights"] || 0,
+					chosenPrice:
+						Number(item["Booking amount"] / item["# of nights"]).toFixed(2) ||
+						0,
 					count: 1, // Assuming each record is for one room. Adjust accordingly if you have more details.
 				},
 			];
@@ -1164,7 +1181,7 @@ exports.airbnb = async (req, res) => {
 				sub_total: parseEarnings(item.Earnings),
 				total_amount: parseEarnings(item.Earnings),
 				currency: "SAR", // Adjust as needed
-				days_of_residence: item["# of nights"],
+				days_of_residence: item["# of nights"] + 1,
 				comment: item["Listing"] || "",
 				booking_comment: item["Listing"] || "", // Replace with the actual column name if different
 				payment: item["Payment type"],
@@ -1242,15 +1259,16 @@ exports.bookingDataDump = async (req, res) => {
 		});
 
 		const calculateDaysOfResidence = (checkIn, checkOut) => {
-			const checkInDate = new Date(checkIn);
-			const checkOutDate = new Date(checkOut);
+			const checkInDate = new Date(new Date(checkIn).setHours(0, 0, 0, 0));
+			const checkOutDate = new Date(new Date(checkOut).setHours(0, 0, 0, 0));
 
-			// Validate if both dates are valid
 			if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
-				return 0; // Return a default value (e.g., 0) if dates are invalid
+				return 0; // Return 0 if dates are invalid
 			}
 
-			return (checkOutDate - checkInDate) / (1000 * 3600 * 24); // Calculating difference in days
+			const diffInTime = checkOutDate.getTime() - checkInDate.getTime();
+			const diffInDays = diffInTime / (1000 * 3600 * 24);
+			return diffInDays; // Return the difference in days
 		};
 
 		const parseDate = (dateString) => {
@@ -1276,8 +1294,11 @@ exports.bookingDataDump = async (req, res) => {
 			);
 
 			const price =
-				Number(parsePrice(item.price)) + Number(parsePrice(item.commission));
-			const chosenPrice = daysOfResidence > 0 ? price / daysOfResidence : 0;
+				Number(parsePrice(item.price)) +
+				Number(parsePrice(item["commission amount"]));
+
+			const chosenPrice =
+				daysOfResidence > 0 ? Number(price / daysOfResidence).toFixed(2) : 0;
 
 			const peoplePerRoom = item.persons
 				? item.persons
@@ -1306,9 +1327,9 @@ exports.bookingDataDump = async (req, res) => {
 			];
 
 			// ... Inside your transform logic
-			const totalAmount = parsePrice(item.price || "0 SAR"); // Provide a default string if Price is undefined
+			const totalAmount = Number(parsePrice(item.price || 0)).toFixed(2); // Provide a default string if Price is undefined
 
-			const commission = parsePrice(item["commission amount"] || "0 SAR"); // Provide a default string if Commission Amount is undefined
+			const commission = parsePrice(item["commission amount"] || 0); // Provide a default string if Commission Amount is undefined
 
 			// Use the parseDate function for date fields
 			const bookedAt = parseDate(item["booked on"]);
