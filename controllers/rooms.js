@@ -280,229 +280,6 @@ exports.getDistinctHotelRunnerRooms = async (req, res) => {
 	}
 };
 
-// Translation map for Arabic to English room names
-const translations = {
-	"غرفه ثلاثى": "Triple Room",
-	"غرفه رباعية": "Quadruple Room",
-	"غرفه عائلية": "Family Room",
-	"سويت بغرفتين": "Suite",
-	"غرفة لذوى الأحتياجات الخاصة": "Accessible Room",
-	"غرفه ثلاثى ": "Triple Room", // Note the space at the end
-	// Add more translations as needed
-};
-
-// Generalized frontend room types mapping to specific Hotel Runner room types
-const roomTypeMapping = {
-	doubleRooms: "Double Room", // Maps to "Double Room" in HotelRunner
-	singleRooms: "Single Room", // Maps to "Single Room" in HotelRunner
-	tripleRooms: "غرفه ثلاثى ", // Maps to "غرفه ثلاثى " in HotelRunner
-	quadRooms: "غرفه رباعية", // Maps to "غرفه رباعية" in HotelRunner
-	familyRooms: "غرفه عائلية", // Maps to "غرفه عائلية" in HotelRunner
-	suite: "سويت بغرفتين", // Maps to "سويت بغرفتين" in HotelRunner
-	accessibleRoom: "غرفة لذوى الأحتياجات الخاصة", // Maps to "غرفة لذوى الأحتياجات الخاصة" in HotelRunner
-	// ... add more mappings as needed ...
-};
-
-// Function to translate room names from Arabic to English
-const translateRoomName = (name) => translations[name] || name;
-
-// Function to map room types to Hotel Runner room codes
-const mapRoomTypeToCode = async (frontendRoomType) => {
-	const token = process.env.HOTEL_RUNNER_TOKEN;
-	const hrId = process.env.HR_ID;
-	const url = `https://app.hotelrunner.com/api/v2/apps/rooms?token=${token}&hr_id=${hrId}`;
-
-	try {
-		const response = await fetch(url);
-		const data = await response.json();
-
-		if (response.ok && data.rooms) {
-			const roomTypeMapping = {
-				doubleRooms: "Double Room",
-				singleRooms: "Single Room",
-				tripleRooms: "غرفه ثلاثى ",
-				quadRooms: "غرفه رباعية",
-				familyRooms: "غرفه عائلية",
-				suite: "سويت بغرفتين",
-				accessibleRoom: "غرفة لذوى الأحتياجات الخاصة",
-				// ... add more mappings as needed ...
-			};
-
-			const translatedRoomType =
-				roomTypeMapping[frontendRoomType] || frontendRoomType;
-
-			if (!translatedRoomType) {
-				console.error(
-					"No mapping found for frontend room type:",
-					frontendRoomType
-				);
-				return null;
-			}
-
-			const matchingRoom = data.rooms.find(
-				(room) => room.name.toLowerCase() === translatedRoomType.toLowerCase()
-			);
-
-			if (!matchingRoom) {
-				console.error("No matching room found for:", translatedRoomType);
-				return null;
-			}
-
-			return matchingRoom.code; // Use the 'code' property for the room code
-		}
-	} catch (error) {
-		console.error("Error fetching room types and codes:", error);
-	}
-
-	return null; // Return null if no match is found
-};
-
-exports.updateRoomInventory = async (req, res) => {
-	const token = process.env.HOTEL_RUNNER_TOKEN;
-	const hrId = process.env.HR_ID;
-
-	console.log(req.body, "update hotel runner");
-
-	const {
-		roomTypes, // Array of room types from the frontend
-		startDate,
-		endDate,
-		availability, // This is also an array
-		minStay,
-	} = req.body;
-
-	try {
-		let updateResults = [];
-
-		for (let i = 0; i < roomTypes.length; i++) {
-			const roomType = roomTypes[i];
-			const avail = availability[i]; // Get the corresponding availability
-
-			const roomCode = await mapRoomTypeToCode(roomType);
-			console.log(roomCode, "roomCode for", roomType);
-
-			if (!roomCode) {
-				console.error("Invalid room type:", roomType);
-				updateResults.push({
-					roomType,
-					success: false,
-					reason: "Invalid room type",
-				});
-				continue; // Skip this iteration if room code is not found
-			}
-
-			const url = `https://app.hotelrunner.com/api/v2/apps/rooms/`;
-			const params = new URLSearchParams({
-				hr_id: hrId,
-				token: token,
-				room_code: roomCode,
-				start_date: startDate,
-				end_date: endDate,
-				availability: avail, // Use the specific availability for this room type
-				stop_sale: false,
-			});
-
-			if (minStay) params.append("min_stay", minStay);
-
-			const response = await fetch(url, {
-				method: "PUT",
-				body: params,
-				headers: {
-					"Content-Type": "application/x-www-form-urlencoded",
-				},
-			});
-
-			if (!response.ok) {
-				const responseBody = await response.text(); // or response.json() if the response is in JSON format
-				console.error("API Response:", responseBody);
-			}
-
-			if (response.ok) {
-				updateResults.push({ roomType, success: true });
-			} else {
-				console.error("Failed to update for", roomType, "with code", roomCode);
-				updateResults.push({
-					roomType,
-					success: false,
-					reason: "API request failed",
-				});
-			}
-		}
-
-		if (updateResults.every((result) => result.success)) {
-			res.json({
-				message: "Room inventory updated successfully",
-				updateResults,
-			});
-		} else {
-			res
-				.status(500)
-				.json({ error: "Failed to update room inventory", updateResults });
-		}
-	} catch (error) {
-		console.error("Error updating room inventory:", error);
-		res.status(500).json({ error: "Error updating room inventory" });
-	}
-};
-
-//Main Function
-// exports.updateRoomInventory = async (req, res) => {
-// 	const token = process.env.HOTEL_RUNNER_TOKEN;
-// 	const hrId = process.env.HR_ID;
-
-// 	// Extract room update parameters from the request body or query
-// 	const {
-// 		roomCode,
-// 		startDate,
-// 		endDate,
-// 		availability,
-// 		price,
-// 		minStay,
-// 		stopSale,
-// 	} = req.body;
-
-// 	const url = `https://app.hotelrunner.com/api/v2/apps/rooms/~`;
-
-// 	const params = new URLSearchParams({
-// 		hr_id: hrId,
-// 		token: token,
-// 		room_code: roomCode,
-// 		start_date: startDate,
-// 		end_date: endDate,
-// 		availability: availability,
-// 		price: price,
-// 		min_stay: minStay,
-// 		stop_sale: stopSale,
-// 	});
-
-// 	try {
-// 		const response = await fetch(url, {
-// 			method: "PUT",
-// 			body: params,
-// 			headers: {
-// 				"Content-Type": "application/x-www-form-urlencoded",
-// 			},
-// 		});
-
-// 		const data = await response.json();
-
-// 		if (data.status === "ok") {
-// 			res.json({
-// 				message: "Room inventory updated successfully",
-// 				transaction_id: data.transaction_id,
-// 			});
-// 		} else {
-// 			res.json({
-// 				message: "Failed to update room inventory",
-// 				transaction_id: data.transaction_id,
-// 			});
-// 		}
-// 	} catch (error) {
-// 		console.error("Error updating room inventory:", error);
-// 		res.status(500).json({ error: "Error updating room inventory" });
-// 	}
-// };
-
 exports.reservedRoomsSummary = async (req, res) => {
 	const { startdate, enddate, belongsTo, accountId } = req.params;
 	const belongsToId = mongoose.Types.ObjectId(belongsTo);
@@ -713,3 +490,137 @@ exports.reservedRoomsSummary = async (req, res) => {
 		res.status(500).send("Error fetching reserved rooms summary");
 	}
 };
+
+// Helper function to generate date range
+const generateDateRange = (startDate, days) => {
+	return Array.from({ length: days }, (_, index) => {
+		const date = new Date(startDate);
+		date.setDate(startDate.getDate() + index);
+		return date;
+	});
+};
+
+// Main function to get room inventory over time, refactored for dynamic date handling
+exports.roomsInventorySummary = async (req, res) => {
+	const { belongsTo, accountId } = req.params;
+	const belongsToId = mongoose.Types.ObjectId(belongsTo);
+	const account_Id = mongoose.Types.ObjectId(accountId);
+	const startDate = new Date();
+	const dateRange = generateDateRange(startDate, 120);
+
+	try {
+		const totalRoomsByType = await getTotalRoomsByType(belongsToId, account_Id);
+
+		let inventorySummary = [];
+
+		for (let date of dateRange) {
+			const dailyInventory = await calculateDailyInventory(
+				date,
+				belongsToId,
+				account_Id,
+				totalRoomsByType
+			);
+			inventorySummary.push(...dailyInventory);
+		}
+
+		// Flatten the array of arrays into a single array
+		inventorySummary = inventorySummary.flat();
+
+		res.json(inventorySummary);
+	} catch (error) {
+		console.error("Error in roomsInventorySummary:", error);
+		res.status(500).send("Error fetching rooms inventory summary");
+	}
+};
+
+// Aggregates total rooms by type
+async function getTotalRoomsByType(belongsToId, accountId) {
+	return Rooms.aggregate([
+		{
+			$match: {
+				belongsTo: belongsToId,
+				hotelId: accountId,
+			},
+		},
+		{
+			$group: {
+				_id: "$room_type",
+				total: { $sum: 1 },
+			},
+		},
+	]);
+}
+
+async function calculateDailyInventory(
+	date,
+	belongsToId,
+	accountId,
+	totalRoomsByType
+) {
+	const inventoryForDate = await Promise.all(
+		totalRoomsByType.map(async (roomType) => {
+			// Fetch reservations that are active for 'date' and not cancelled
+			const overlappingReservations = await Reservations.find({
+				belongsTo: belongsToId,
+				hotelId: accountId,
+				reservation_status: { $ne: "cancelled" },
+				checkin_date: { $lte: date },
+				checkout_date: { $gt: date },
+			});
+
+			let totalReserved = 0;
+			let totalOccupied = 0;
+
+			// Process each reservation to calculate totalReserved and totalOccupied
+			for (const reservation of overlappingReservations) {
+				const isOccupied =
+					reservation.roomId &&
+					reservation.roomId.length > 0 &&
+					!reservation.roomId.includes(null);
+
+				// Calculate reserved based on pickedRoomsType and mapRoomType function
+				const matchedRoomTypes = reservation.pickedRoomsType.filter(
+					(prt) => mapRoomType(prt.room_type) === roomType._id
+				);
+
+				matchedRoomTypes.forEach((matchedRoomType) => {
+					if (isOccupied) {
+						// Increment totalOccupied based on the count in matchedRoomType
+						totalOccupied += matchedRoomType.count;
+					} else {
+						// Increment totalReserved based on the count in matchedRoomType
+						totalReserved += matchedRoomType.count;
+					}
+				});
+			}
+
+			return {
+				date: date.toISOString().split("T")[0],
+				room_type: roomType._id,
+				total_rooms: roomType.total,
+				total_rooms_available: roomType.total - totalReserved - totalOccupied,
+				total_rooms_reserved: totalReserved,
+				total_rooms_occupied: totalOccupied,
+			};
+		})
+	);
+
+	return inventoryForDate;
+}
+
+// Updated definition of the mapRoomType function with a type check
+function mapRoomType(roomType) {
+	// Check if roomType is a string before proceeding
+	if (typeof roomType !== "string") {
+		// console.warn("mapRoomType called with non-string argument:", roomType);
+		return roomType; // Return as is or handle differently as needed
+	}
+
+	const lowerCaseRoomType = roomType.toLowerCase();
+	if (lowerCaseRoomType.includes("double")) return "doubleRooms";
+	if (lowerCaseRoomType.includes("triple")) return "tripleRooms";
+	if (lowerCaseRoomType.includes("quad")) return "quadRooms";
+	if (lowerCaseRoomType.includes("family")) return "familyRooms";
+	// Default case if no specific mapping found
+	return "otherRooms"; // Consider handling unexpected room types explicitly
+}
