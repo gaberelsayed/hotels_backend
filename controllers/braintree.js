@@ -3,8 +3,12 @@
 const braintree = require("braintree");
 const Reservations = require("../models/reservations");
 const fetch = require("node-fetch");
-
+const sgMail = require("@sendgrid/mail");
 require("dotenv").config();
+const puppeteer = require("puppeteer");
+const { paymentReceipt } = require("./assets");
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 var gateway = new braintree.BraintreeGateway({
 	environment: braintree.Environment.Production, // Production Sandbox
@@ -12,6 +16,85 @@ var gateway = new braintree.BraintreeGateway({
 	publicKey: process.env.BRAINTREE_PUBLIC_KEY,
 	privateKey: process.env.BRAINTREE_PRIVATE_KEY,
 });
+
+const createPdfBuffer = async (html) => {
+	const browser = await puppeteer.launch({
+		headless: true,
+		args: [
+			"--no-sandbox",
+			"--disable-setuid-sandbox",
+			"--disable-dev-shm-usage",
+			"--disable-accelerated-2d-canvas",
+			"--no-first-run",
+			"--no-zygote",
+			"--single-process", // <- this one doesn't works in Windows
+			"--disable-gpu",
+		],
+	});
+
+	const page = await browser.newPage();
+	await page.setContent(html, { waitUntil: "networkidle0" });
+	const pdfBuffer = await page.pdf({ format: "A4" });
+	await browser.close();
+	return pdfBuffer;
+};
+
+const sendEmailWithPdf = async (
+	updatedReservation,
+	hotelName,
+	amountFromTheClient,
+	transactionDetails
+) => {
+	// Dynamically generating HTML content for the email body and PDF
+	const htmlContent = paymentReceipt(
+		updatedReservation,
+		hotelName,
+		amountFromTheClient,
+		transactionDetails
+	);
+	const pdfBuffer = await createPdfBuffer(htmlContent);
+
+	const FormSubmittionEmail = {
+		to: updatedReservation.customer_details.email
+			? updatedReservation.customer_details.email
+			: "ahmedabdelrazak20@gmail.com",
+		from: "noreply@janatbooking.com",
+		// cc: [
+		// 	{ email: "ayed.hotels@gmail.com" },
+		// 	{ email: "zaerhotel@gmail.com" },
+		// 	{ email: "3yedhotel@gmail.com" },
+		// 	{ email: "morazzakhamouda@gmail.com" },
+		// ],
+		bcc: [
+			{ email: "ayed.hotels@gmail.com" },
+			{ email: "zaerhotel@gmail.com" },
+			{ email: "3yedhotel@gmail.com" },
+			{ email: "morazzakhamouda@gmail.com" },
+			{ email: "ahmed.abdelrazak@infinite-apps.com" },
+		],
+		subject: `Janat Booking - Reservation Confirmation`,
+		html: htmlContent,
+		attachments: [
+			{
+				content: pdfBuffer.toString("base64"),
+				filename: "Payment_Receipt.pdf",
+				type: "application/pdf",
+				disposition: "attachment",
+			},
+		],
+	};
+
+	try {
+		await sgMail.send(FormSubmittionEmail);
+	} catch (error) {
+		console.error(
+			"Error sending email with PDF error.response.boyd",
+			error.response.body
+		);
+		console.error("Error sending email with PDF", error);
+		// Handle error appropriately
+	}
+};
 
 exports.generateToken = (req, res) => {
 	gateway.clientToken.generate({}, function (err, response) {
@@ -26,6 +109,7 @@ exports.generateToken = (req, res) => {
 
 exports.processPayment = (req, res) => {
 	let nonceFromTheClient = req.body.paymentMethodNonce;
+	let hotelName = req.body.hotelName;
 	let amountFromTheClient = parseFloat(req.body.amount).toFixed(2); // Ensure amount is in a valid format
 	let reservationId = req.params.reservationId; // Get reservationId from request parameters
 
@@ -79,6 +163,7 @@ exports.processPayment = (req, res) => {
 								error: "Failed to update reservation with payment details.",
 							});
 						}
+
 						res.json({
 							success: true, // Explicitly indicate success for clarity
 							message:
@@ -88,6 +173,13 @@ exports.processPayment = (req, res) => {
 								paymentDetails: transactionDetails,
 							},
 						});
+
+						sendEmailWithPdf(
+							updatedReservation,
+							hotelName,
+							amountFromTheClient,
+							transactionDetails
+						);
 					}
 				);
 			} else {
