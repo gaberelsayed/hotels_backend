@@ -67,7 +67,7 @@ exports.processPayment = (req, res) => {
 						$set: {
 							payment_details: transactionDetails,
 							paid_amount: amountFromTheClient,
-							payment: "Paid",
+							payment: "Paid (Affiliate)",
 						},
 					},
 					{ new: true },
