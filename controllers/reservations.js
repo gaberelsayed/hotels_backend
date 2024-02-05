@@ -6,6 +6,7 @@ const Rooms = require("../models/rooms");
 const xlsx = require("xlsx");
 const sgMail = require("@sendgrid/mail");
 const puppeteer = require("puppeteer");
+const moment = require("moment-timezone");
 const {
 	confirmationEmail,
 	reservationUpdate,
@@ -857,6 +858,15 @@ exports.agodaDataDump = async (req, res) => {
 				},
 			];
 
+			// Parse the date using moment, and convert it to the Saudi Arabia timezone
+			const bookedAtSaudi = moment.tz(item.BookedDate, "Asia/Riyadh").toDate();
+			const checkInDateSaudi = moment
+				.tz(item.StayDateFrom, "Asia/Riyadh")
+				.toDate();
+			const checkOutDateSaudi = moment
+				.tz(item.StayDateTo, "Asia/Riyadh")
+				.toDate();
+
 			// Prepare the document based on your mapping, including any necessary calculations
 			const document = {
 				confirmation_number: item.BookingIDExternal_reference_ID,
@@ -875,13 +885,13 @@ exports.agodaDataDump = async (req, res) => {
 					: item.Status,
 				total_guests: item.No_of_adult + (item.No_of_children || 0),
 				cancel_reason: item.CancellationPolicyDescription || "",
-				booked_at: new Date(item.BookedDate),
+				booked_at: bookedAtSaudi,
 				sub_total: item.Total_inclusive_rate,
 				total_rooms: 1,
 				total_amount: totalAmount.toFixed(2),
 				currency: item.Currency,
-				checkin_date: new Date(item.StayDateFrom),
-				checkout_date: new Date(item.StayDateTo),
+				checkin_date: checkInDateSaudi,
+				checkout_date: checkOutDateSaudi,
 				days_of_residence: daysOfResidence,
 				comment: item.Special_Request || "",
 				commision: item.Commission, // Note the misspelling of 'commission' here
