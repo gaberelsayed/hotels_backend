@@ -1310,6 +1310,11 @@ exports.bookingDataDump = async (req, res) => {
 			return 0; // Return 0 or some default value if the priceString is not a valid string
 		};
 
+		const parseDateToSaudiTimezone = (dateString) => {
+			// Parse the date using moment and convert it to the Asia/Riyadh timezone
+			return moment.tz(dateString, "Asia/Riyadh").format();
+		};
+
 		for (const item of data) {
 			const itemNumber = item["book number"]?.toString().trim();
 			if (!itemNumber) continue; // Skip if there's no book number
@@ -1364,9 +1369,9 @@ exports.bookingDataDump = async (req, res) => {
 			const commission = parsePrice(item["commission amount"] || 0); // Provide a default string if Commission Amount is undefined
 
 			// Use the parseDate function for date fields
-			const bookedAt = parseDate(item["booked on"]);
-			const checkInDate = parseDate(item["check-in"]);
-			const checkOutDate = parseDate(item["check-out"]);
+			const bookedAt = parseDateToSaudiTimezone(item["booked on"]);
+			const checkInDate = parseDateToSaudiTimezone(item["check-in"]);
+			const checkOutDate = parseDateToSaudiTimezone(item["check-out"]);
 
 			// Check for valid dates before proceeding
 			if (!bookedAt || !checkInDate || !checkOutDate) {
