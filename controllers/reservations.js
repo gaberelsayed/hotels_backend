@@ -830,12 +830,14 @@ exports.agodaDataDump = async (req, res) => {
 				.trim();
 			if (!itemNumber) continue; // Skip if there's no book number
 
+			// Calculate totalAmount by checking if ReferenceSellInclusive is provided and not zero
 			let totalAmount;
-			if (Number(item.ReferenceSellInclusive) !== 0) {
+			if (Number(item.ReferenceSellInclusive) > 0) {
 				totalAmount = Number(item.ReferenceSellInclusive);
 			} else {
+				// If ReferenceSellInclusive is 0, undefined, or not a number, add Total_inclusive_rate and Commission
 				totalAmount =
-					Number(item.Total_inclusive_rate) + Number(item.Commission);
+					Number(item.Total_inclusive_rate || 0) + Number(item.Commission || 0);
 			}
 
 			const daysOfResidence = calculateDaysOfResidence(
@@ -843,12 +845,16 @@ exports.agodaDataDump = async (req, res) => {
 				item.StayDateTo
 			);
 
+			// Assuming each record is for one room, adjust accordingly if you have more details
 			const pickedRoomsType = [
 				{
 					room_type: item.RoomType,
-					chosenPrice: Number(totalAmount / daysOfResidence).toFixed(2) || 0,
+					chosenPrice: (daysOfResidence > 0
+						? totalAmount / daysOfResidence
+						: 0
+					).toFixed(2),
 					count: 1,
-				}, // Assuming each record is for one room
+				},
 			];
 
 			// Prepare the document based on your mapping, including any necessary calculations
@@ -872,7 +878,7 @@ exports.agodaDataDump = async (req, res) => {
 				booked_at: new Date(item.BookedDate),
 				sub_total: item.Total_inclusive_rate,
 				total_rooms: 1,
-				total_amount: totalAmount,
+				total_amount: totalAmount.toFixed(2),
 				currency: item.Currency,
 				checkin_date: new Date(item.StayDateFrom),
 				checkout_date: new Date(item.StayDateTo),
