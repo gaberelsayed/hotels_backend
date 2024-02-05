@@ -691,6 +691,13 @@ exports.updateReservation = async (req, res) => {
 	const reservationId = req.params.reservationId;
 	const updateData = req.body;
 
+	console.log(updateData.total_amount, "total_amount");
+	console.log(
+		updateData.calculateTotalAmountWithRooms,
+		"calculateTotalAmountWithRooms"
+	);
+	console.log(updateData.days_of_residence, "days_of_residence");
+
 	// Assuming validation of reservationId and updateData is done beforehand
 
 	Reservations.findByIdAndUpdate(reservationId, updateData, { new: true })
