@@ -1294,8 +1294,8 @@ exports.bookingDataDump = async (req, res) => {
 			);
 
 			const price =
-				Number(parsePrice(item.price)) +
-				Number(parsePrice(item["commission amount"]));
+				Number(parsePrice(item.price)) + Number(parsePrice(item.price)) * 0.1;
+			Number(parsePrice(item["commission amount"]));
 
 			const chosenPrice =
 				daysOfResidence > 0 ? Number(price / daysOfResidence).toFixed(2) : 0;
@@ -1322,7 +1322,7 @@ exports.bookingDataDump = async (req, res) => {
 				{
 					room_type: roomType,
 					chosenPrice: chosenPrice,
-					count: 1, // Assuming each record is for one room. Adjust accordingly if you have more details.
+					count: item["rooms"], // Assuming each record is for one room. Adjust accordingly if you have more details.
 				},
 			];
 
@@ -1361,7 +1361,8 @@ exports.bookingDataDump = async (req, res) => {
 				checkin_date: checkInDate,
 				checkout_date: checkOutDate,
 				sub_total: totalAmount,
-				total_amount: Number(totalAmount) + Number(commission),
+				total_amount:
+					Number(totalAmount) + Number(commission) + Number(totalAmount) * 0.1,
 				currency: "SAR", // Adjust as needed
 				days_of_residence: daysOfResidence,
 				comment: item.remarks || "",
