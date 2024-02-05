@@ -1,6 +1,17 @@
-const moment = require("moment");
+const moment = require("moment-timezone");
 
 const confirmationEmail = (reservationData) => {
+	// Convert dates to Saudi Arabia time zone
+	const checkinDateSaudi = moment(reservationData.checkin_date)
+		.tz("Asia/Riyadh")
+		.format("dddd, MMMM Do YYYY");
+	const checkoutDateSaudi = moment(reservationData.checkout_date)
+		.tz("Asia/Riyadh")
+		.format("dddd, MMMM Do YYYY");
+	const bookedAtSaudi = moment(reservationData.booked_at)
+		.tz("Asia/Riyadh")
+		.format("dddd, MMMM Do YYYY");
+
 	const email = `
     <!DOCTYPE html>
     <html lang="en">
@@ -41,10 +52,9 @@ const confirmationEmail = (reservationData) => {
                 <p><strong>Guest Name:</strong> ${
 									reservationData.customer_details.name
 								}</p>
-              
-                                <p><strong>Reservation Status:</strong> ${
-																	reservationData.reservation_status
-																}</p>
+                <p><strong>Reservation Status:</strong> ${
+									reservationData.reservation_status
+								}</p>
                 <p><strong>Country:</strong> ${
 									reservationData.customer_details.nationality
 								}</p>
@@ -55,28 +65,22 @@ const confirmationEmail = (reservationData) => {
 													.map((room) => room.room_type)
 													.join(", ")}</td>
                     </tr>
-                   
                     <tr>
-                    <th>Room Count</th>
-                    <td class="roomType">${reservationData.pickedRoomsType.reduce(
-											(sum, item) => sum + (item.count || 0),
-											0
-										)}</td>
-                    </tr>
-                    
-                    <tr>
-                    <th>Check-in Date</th>
-                    <td>${moment(reservationData.checkin_date).format(
-											"dddd, MMMM Do YYYY"
-										)}</td>
-                </tr>
-                    <tr>
-                        <th>Check-out Date</th>
-                        <td>${moment(reservationData.checkout_date).format(
-													"dddd, MMMM Do YYYY"
+                        <th>Room Count</th>
+                        <td class="roomType">${reservationData.pickedRoomsType.reduce(
+													(sum, item) => sum + (item.count || 0),
+													0
 												)}</td>
                     </tr>
-                        <tr>
+                    <tr>
+                        <th>Check-in Date</th>
+                        <td>${checkinDateSaudi}</td>
+                    </tr>
+                    <tr>
+                        <th>Check-out Date</th>
+                        <td>${checkoutDateSaudi}</td>
+                    </tr>
+                    <tr>
                         <th>Nights Of Residence</th>
                         <td>${reservationData.days_of_residence} Nights</td>
                     </tr>
@@ -84,18 +88,16 @@ const confirmationEmail = (reservationData) => {
                         <th>Guest Count</th>
                         <td>${reservationData.total_guests}</td>
                     </tr>
-                <tr>
-                    <th>Payment Status</th>
-                    <td>${reservationData.payment}</td>
-                </tr>
+                    <tr>
+                        <th>Payment Status</th>
+                        <td>${reservationData.payment}</td>
+                    </tr>
                     <tr>
                         <th>Order Total</th>
                         <td>${reservationData.total_amount.toLocaleString()} SAR</td>
                     </tr>
                 </table>
-                <p><strong>Booking Date:</strong> ${new Date(
-									reservationData.booked_at
-								).toDateString()}</p>
+                <p><strong>Booking Date:</strong> ${bookedAtSaudi}</p>
             </div>
             <div class="footer">
                 <p>Thank you for booking with us!</p>
@@ -103,12 +105,23 @@ const confirmationEmail = (reservationData) => {
         </div>
     </body>
     </html>
-`;
+    `;
 
 	return email;
 };
 
 const reservationUpdate = (reservationData, hotelName) => {
+	// Convert dates to Saudi Arabia time zone
+	const checkinDateSaudi = moment(reservationData.checkin_date)
+		.tz("Asia/Riyadh")
+		.format("dddd, MMMM Do YYYY");
+	const checkoutDateSaudi = moment(reservationData.checkout_date)
+		.tz("Asia/Riyadh")
+		.format("dddd, MMMM Do YYYY");
+	const bookedAtSaudi = moment(reservationData.booked_at)
+		.tz("Asia/Riyadh")
+		.format("dddd, MMMM Do YYYY");
+
 	const email = `
     <!DOCTYPE html>
     <html lang="en">
@@ -174,15 +187,11 @@ const reservationUpdate = (reservationData, hotelName) => {
                 
                 <tr>
                 <th>Check-in Date</th>
-                <td>${moment(reservationData.checkin_date).format(
-									"dddd, MMMM Do YYYY"
-								)}</td>
+                <td>${checkinDateSaudi}</td>
             </tr>
             <tr>
                 <th>Check-out Date</th>
-                <td>${moment(reservationData.checkout_date).format(
-									"dddd, MMMM Do YYYY"
-								)}</td>
+                <td>${checkoutDateSaudi}</td>
             </tr>
                 <tr>
                 <th>Nights Of Residence</th>
@@ -201,9 +210,7 @@ const reservationUpdate = (reservationData, hotelName) => {
                     <td>${reservationData.total_amount.toLocaleString()} SAR</td>
                 </tr>
             </table>
-            <p><strong>Booking Date:</strong> ${new Date(
-							reservationData.booked_at
-						).toDateString()}</p>
+            <p><strong>Booking Date:</strong> ${bookedAtSaudi}</p>
         </div>
         <div class="footer">
             <p>Thank you for booking with us!</p>
@@ -271,6 +278,17 @@ const paymentReceipt = (
 	amountFromTheClient,
 	transactionDetails
 ) => {
+	// Convert dates to Saudi Arabia time zone
+	const checkinDateSaudi = moment(updatedReservation.checkin_date)
+		.tz("Asia/Riyadh")
+		.format("dddd, MMMM Do YYYY");
+	const checkoutDateSaudi = moment(updatedReservation.checkout_date)
+		.tz("Asia/Riyadh")
+		.format("dddd, MMMM Do YYYY");
+	const bookedAtSaudi = moment(updatedReservation.booked_at)
+		.tz("Asia/Riyadh")
+		.format("dddd, MMMM Do YYYY");
+
 	const email = `
     <!DOCTYPE html>
     <html lang="en">
@@ -342,15 +360,11 @@ const paymentReceipt = (
                 
                 <tr>
                 <th>Check-in Date</th>
-                <td>${moment(updatedReservation.checkin_date).format(
-									"dddd, MMMM Do YYYY"
-								)}</td>
+                <td>${checkinDateSaudi}</td>
             </tr>
             <tr>
                 <th>Check-out Date</th>
-                <td>${moment(updatedReservation.checkout_date).format(
-									"dddd, MMMM Do YYYY"
-								)}</td>
+                <td>${checkoutDateSaudi}</td>
             </tr>
                 <tr>
                 <th>Nights Of Residence</th>
@@ -369,9 +383,7 @@ const paymentReceipt = (
                     <td>${Number(amountFromTheClient).toLocaleString()} SAR</td>
                 </tr>
             </table>
-            <p><strong>Booking Date:</strong> ${new Date(
-							updatedReservation.booked_at
-						).toDateString()}</p>
+            <p><strong>Booking Date:</strong> ${bookedAtSaudi}</p>
         </div>
         <div class="footer">
             <p>Thank you for booking with us!</p>
