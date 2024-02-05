@@ -1370,8 +1370,8 @@ exports.bookingDataDump = async (req, res) => {
 
 			// Use the parseDate function for date fields
 			const bookedAt = parseDateToSaudiTimezone(item["booked on"]);
-			const checkInDate = parseDateToSaudiTimezone(item["check-in"]);
-			const checkOutDate = parseDateToSaudiTimezone(item["check-out"]);
+			const checkInDate = parseDate(item["check-in"]);
+			const checkOutDate = parseDate(item["check-out"]);
 
 			// Check for valid dates before proceeding
 			if (!bookedAt || !checkInDate || !checkOutDate) {
