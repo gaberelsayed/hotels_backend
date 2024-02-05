@@ -835,14 +835,14 @@ exports.agodaDataDump = async (req, res) => {
 				item.StayDateTo
 			);
 
+			const thePrice = Number(item.ReferenceSellInclusive)
+				? Number(item.ReferenceSellInclusive)
+				: Number(item.Total_inclusive_rate) + Number(item.Commission);
+
 			const pickedRoomsType = [
 				{
 					room_type: item.RoomType,
-					chosenPrice:
-						Number(
-							(Number(item.Total_inclusive_rate) + Number(item.Commission)) /
-								daysOfResidence
-						).toFixed(2) || 0,
+					chosenPrice: Number(thePrice / daysOfResidence).toFixed(2) || 0,
 					count: 1,
 				}, // Assuming each record is for one room
 			];
@@ -868,8 +868,9 @@ exports.agodaDataDump = async (req, res) => {
 				cancel_reason: item.CancellationPolicyDescription || "",
 				booked_at: new Date(item.BookedDate),
 				sub_total: item.Total_inclusive_rate,
-				total_amount:
-					Number(item.Total_inclusive_rate) + Number(item.Commission),
+				total_amount: Number(item.ReferenceSellInclusive)
+					? Number(item.ReferenceSellInclusive)
+					: Number(item.Total_inclusive_rate) + Number(item.Commission),
 				currency: item.Currency,
 				checkin_date: new Date(item.StayDateFrom),
 				checkout_date: new Date(item.StayDateTo),
