@@ -12,6 +12,11 @@ const confirmationEmail = (reservationData) => {
 		.tz("Asia/Riyadh")
 		.format("dddd, MMMM Do YYYY");
 
+	const checkinDate = moment(reservationData.checkin_date).tz("Asia/Riyadh");
+	const checkoutDate = moment(reservationData.checkout_date).tz("Asia/Riyadh");
+
+	const nightsOfResidence = checkoutDate.diff(checkinDate, "days");
+
 	const email = `
     <!DOCTYPE html>
     <html lang="en">
@@ -82,7 +87,7 @@ const confirmationEmail = (reservationData) => {
                     </tr>
                     <tr>
                         <th>Nights Of Residence</th>
-                        <td>${reservationData.days_of_residence} Nights</td>
+                        <td>${nightsOfResidence} Nights</td>
                     </tr>
                     <tr>
                         <th>Guest Count</th>
@@ -121,6 +126,11 @@ const reservationUpdate = (reservationData, hotelName) => {
 	const bookedAtSaudi = moment(reservationData.booked_at)
 		.tz("Asia/Riyadh")
 		.format("dddd, MMMM Do YYYY");
+
+	const checkinDate = moment(reservationData.checkin_date).tz("Asia/Riyadh");
+	const checkoutDate = moment(reservationData.checkout_date).tz("Asia/Riyadh");
+
+	const nightsOfResidence = checkoutDate.diff(checkinDate, "days");
 
 	const email = `
     <!DOCTYPE html>
@@ -195,7 +205,7 @@ const reservationUpdate = (reservationData, hotelName) => {
             </tr>
                 <tr>
                 <th>Nights Of Residence</th>
-                <td>${reservationData.days_of_residence} Nights</td>
+                <td>${nightsOfResidence} Nights</td>
             </tr>
             <tr>
                 <th>Guest Count</th>
@@ -289,6 +299,11 @@ const paymentReceipt = (
 		.tz("Asia/Riyadh")
 		.format("dddd, MMMM Do YYYY");
 
+	const checkinDate = moment(reservationData.checkin_date).tz("Asia/Riyadh");
+	const checkoutDate = moment(reservationData.checkout_date).tz("Asia/Riyadh");
+
+	const nightsOfResidence = checkoutDate.diff(checkinDate, "days");
+
 	const email = `
     <!DOCTYPE html>
     <html lang="en">
@@ -368,7 +383,7 @@ const paymentReceipt = (
             </tr>
                 <tr>
                 <th>Nights Of Residence</th>
-                <td>${updatedReservation.days_of_residence} Nights</td>
+                <td>${nightsOfResidence} Nights</td>
             </tr>
             <tr>
                 <th>Guest Count</th>
