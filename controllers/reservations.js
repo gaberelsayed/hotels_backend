@@ -949,29 +949,28 @@ exports.agodaDataDump = async (req, res) => {
 };
 
 const parseDate = (dateInput, country) => {
-	// Check if dateInput is an Excel serial date number
 	if (typeof dateInput === "number") {
-		const excelEpoch = new Date(1899, 11, 30); // Excel's base date (December 30, 1899)
+		// If dateInput is an Excel serial date number, parse it accordingly
+		// Excel's base date is December 30, 1899
+		const excelEpoch = new Date(1899, 11, 30);
 		const parsedDate = new Date(excelEpoch.getTime() + dateInput * 86400000);
 		const offset = parsedDate.getTimezoneOffset();
 		return new Date(parsedDate.getTime() - offset * 60000);
+	} else if (typeof dateInput === "string" && dateInput.includes("T")) {
+		// If dateInput is an ISO 8601 string with time, convert directly to Saudi time zone
+		return moment.tz(dateInput, "Asia/Riyadh").toDate();
+	} else if (typeof dateInput === "string") {
+		// If dateInput is a date string without time, determine format and create date
+		const parts = dateInput.split(/[-/]/);
+		const date =
+			country === "US"
+				? new Date(parts[2], parts[0] - 1, parts[1])
+				: new Date(parts[2], parts[1] - 1, parts[0]);
+		// Convert the date to Saudi time zone
+		return moment.tz(date, "Asia/Riyadh").toDate();
 	}
-	// Check for ISO 8601 date string
-	else if (typeof dateInput === "string" && dateInput.includes("T")) {
-		return new Date(dateInput);
-	}
-	// Assume dateInput is a "dd/mm/yyyy" or "mm/dd/yyyy" format string
-	else if (typeof dateInput === "string") {
-		const parts = dateInput.split("/");
-		let day, month, year;
-		if (country === "US") {
-			[month, day, year] = parts.map(Number);
-		} else {
-			[day, month, year] = parts.map(Number);
-		}
-		return new Date(year, month - 1, day);
-	}
-	return null; // Return null if none of the above conditions are met
+	// Return null if input is unrecognized
+	return null;
 };
 
 exports.expediaDataDump = async (req, res) => {
@@ -1002,21 +1001,20 @@ exports.expediaDataDump = async (req, res) => {
 			if (!itemNumber) continue; // Skip if there's no book number
 
 			const daysOfResidence = calculateDaysOfResidence(
-				item["check-in"],
-				item["check-out"]
+				parseDate(item["Check-in"], country),
+				parseDate(item["Check-out"], country)
 			);
 
 			const pickedRoomsType = [
 				{
 					room_type: item["Room"],
 					chosenPrice:
-						Number(item["Booking amount"] / daysOfResidence).toFixed(2) || 0,
-					count: 1, // Assuming each record is for one room. Adjust accordingly if you have more details.
+						(Number(item["Booking amount"]) / daysOfResidence).toFixed(2) || 0,
+					count: 1,
 				},
 			];
 
-			// Use the parseDate function for date fields
-			const bookedAt = parseDate(item["Booked"]);
+			const bookedAt = parseDate(item["Booked"], country);
 			const checkInDate = parseDate(item["Check-in"], country);
 			const checkOutDate = parseDate(item["Check-out"], country);
 
