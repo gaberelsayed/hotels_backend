@@ -893,7 +893,7 @@ exports.agodaDataDump = async (req, res) => {
 
 			const existingReservation = await Reservations.findOne({
 				confirmation_number: itemNumber,
-				booking_source: "booking.com",
+				booking_source: "agoda",
 				hotelId: accountId,
 			});
 
@@ -1051,7 +1051,7 @@ exports.expediaDataDump = async (req, res) => {
 
 			const existingReservation = await Reservations.findOne({
 				confirmation_number: itemNumber,
-				booking_source: "booking.com",
+				booking_source: "expedia",
 				hotelId: accountId,
 			});
 
@@ -1209,7 +1209,7 @@ exports.airbnb = async (req, res) => {
 
 			const existingReservation = await Reservations.findOne({
 				confirmation_number: itemNumber,
-				booking_source: "booking.com",
+				booking_source: "airbnb",
 				hotelId: accountId,
 			});
 
