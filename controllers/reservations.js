@@ -871,7 +871,7 @@ exports.agodaDataDump = async (req, res) => {
 				cancel_reason: item.CancellationPolicyDescription || "",
 				booked_at: new Date(item.BookedDate),
 				sub_total: item.Total_inclusive_rate,
-				total_rooms: roomCount,
+				total_rooms: 1,
 				total_amount: totalAmount,
 				currency: item.Currency,
 				checkin_date: new Date(item.StayDateFrom),
