@@ -1294,8 +1294,10 @@ exports.bookingDataDump = async (req, res) => {
 			);
 
 			const price =
-				Number(parsePrice(item.price)) + Number(parsePrice(item.price)) * 0.1;
-			Number(parsePrice(item["commission amount"]));
+				(Number(parsePrice(item.price)) +
+					Number(parsePrice(item.price)) * 0.1 +
+					Number(parsePrice(item["commission amount"]))) /
+				Number(item["rooms"]);
 
 			const chosenPrice =
 				daysOfResidence > 0 ? Number(price / daysOfResidence).toFixed(2) : 0;
@@ -1318,13 +1320,17 @@ exports.bookingDataDump = async (req, res) => {
 				roomType = "Family Room";
 			} // Add more conditions as per your logic
 
-			const pickedRoomsType = [
-				{
+			// Initialize the pickedRoomsType array
+			const pickedRoomsType = [];
+
+			// Populate the pickedRoomsType array based on the room count
+			for (let i = 0; i < Number(item["rooms"]); i++) {
+				pickedRoomsType.push({
 					room_type: roomType,
 					chosenPrice: chosenPrice,
-					count: item["rooms"], // Assuming each record is for one room. Adjust accordingly if you have more details.
-				},
-			];
+					count: 1, // Each object represents 1 room
+				});
+			}
 
 			// ... Inside your transform logic
 			const totalAmount = Number(parsePrice(item.price || 0)).toFixed(2); // Provide a default string if Price is undefined
