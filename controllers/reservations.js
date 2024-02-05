@@ -830,19 +830,23 @@ exports.agodaDataDump = async (req, res) => {
 				.trim();
 			if (!itemNumber) continue; // Skip if there's no book number
 
+			let totalAmount;
+			if (Number(item.ReferenceSellInclusive) !== 0) {
+				totalAmount = Number(item.ReferenceSellInclusive);
+			} else {
+				totalAmount =
+					Number(item.Total_inclusive_rate) + Number(item.Commission);
+			}
+
 			const daysOfResidence = calculateDaysOfResidence(
 				item.StayDateFrom,
 				item.StayDateTo
 			);
 
-			const thePrice = Number(item.ReferenceSellInclusive)
-				? Number(item.ReferenceSellInclusive)
-				: Number(item.Total_inclusive_rate) + Number(item.Commission);
-
 			const pickedRoomsType = [
 				{
 					room_type: item.RoomType,
-					chosenPrice: Number(thePrice / daysOfResidence).toFixed(2) || 0,
+					chosenPrice: Number(totalAmount / daysOfResidence).toFixed(2) || 0,
 					count: 1,
 				}, // Assuming each record is for one room
 			];
@@ -864,13 +868,11 @@ exports.agodaDataDump = async (req, res) => {
 					? "no_show"
 					: item.Status,
 				total_guests: item.No_of_adult + (item.No_of_children || 0),
-				total_rooms: 1, // The number of items in the group
 				cancel_reason: item.CancellationPolicyDescription || "",
 				booked_at: new Date(item.BookedDate),
 				sub_total: item.Total_inclusive_rate,
-				total_amount: Number(item.ReferenceSellInclusive)
-					? Number(item.ReferenceSellInclusive)
-					: Number(item.Total_inclusive_rate) + Number(item.Commission),
+				total_rooms: roomCount,
+				total_amount: totalAmount,
 				currency: item.Currency,
 				checkin_date: new Date(item.StayDateFrom),
 				checkout_date: new Date(item.StayDateTo),
