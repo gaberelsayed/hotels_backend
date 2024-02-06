@@ -58,6 +58,11 @@ const roomsSchema = new mongoose.Schema(
 			default: "#000",
 		},
 
+		activeRoom: {
+			type: Boolean,
+			default: true,
+		},
+
 		belongsTo: { type: ObjectId, ref: "User" },
 		hotelId: { type: ObjectId, ref: "HotelDetails" },
 	},

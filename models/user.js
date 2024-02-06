@@ -68,6 +68,13 @@ const userSchema = new mongoose.Schema(
 			default: 0,
 		},
 
+		roleDescription: {
+			type: String,
+			trim: true,
+			lowercase: true,
+			default: "",
+		},
+
 		resetPasswordLink: {
 			data: String,
 			default: "",
@@ -76,6 +83,20 @@ const userSchema = new mongoose.Schema(
 		activeUser: {
 			type: Boolean,
 			default: true,
+		},
+
+		hotelIdWork: {
+			type: String,
+			lowercase: true,
+			trim: true,
+			default: "",
+		},
+
+		belongsToId: {
+			type: String,
+			lowercase: true,
+			trim: true,
+			default: "",
 		},
 	},
 	{ timestamps: true }

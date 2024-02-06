@@ -16,15 +16,33 @@ exports.roomById = (req, res, next, id) => {
 };
 
 exports.create = (req, res) => {
-	const room = new Rooms(req.body);
-	room.save((err, data) => {
+	// Destructure room_number and hotelId from the request body
+	const { room_number, hotelId } = req.body;
+
+	// Define the condition for finding the existing room
+	const condition = { room_number, hotelId: mongoose.Types.ObjectId(hotelId) };
+
+	// Define the update operation
+	const update = req.body;
+
+	// Set the options to upsert and return the new document
+	const options = { new: true, upsert: true, setDefaultsOnInsert: true };
+
+	Rooms.findOneAndUpdate(condition, update, options, (err, data) => {
 		if (err) {
-			console.log(err, "err");
+			console.error(err, "Error in creating/updating room");
 			return res.status(400).json({
-				error: "Cannot Create room",
+				error: "Cannot create/update room",
 			});
 		}
-		res.json({ data });
+		// If the operation is an insert, upsert returns the document before insert, check for data
+		if (!data) {
+			return res
+				.status(201)
+				.json({ message: "Room created successfully", data: update });
+		}
+		// If the operation is an update, upsert returns the updated document
+		res.json({ message: "Room updated successfully", data });
 	});
 };
 
@@ -52,6 +70,37 @@ exports.update = (req, res) => {
 		}
 		res.json(data);
 	});
+};
+
+exports.deleteRooms = (req, res) => {
+	const { hotelId } = req.params;
+
+	// Check if hotelId is a valid ObjectId
+	if (!mongoose.Types.ObjectId.isValid(hotelId)) {
+		return res.status(400).json({
+			error: "Invalid hotelId",
+		});
+	}
+
+	Rooms.deleteMany(
+		{ hotelId: mongoose.Types.ObjectId(hotelId) },
+		(err, result) => {
+			if (err) {
+				console.error("Error deleting rooms:", err);
+				return res.status(400).json({
+					error: "Error occurred while deleting rooms",
+				});
+			}
+			if (result.deletedCount === 0) {
+				return res.status(404).json({
+					message: "No rooms found with the given hotelId",
+				});
+			}
+			res.json({
+				message: `${result.deletedCount} rooms were successfully deleted`,
+			});
+		}
+	);
 };
 
 exports.list = (req, res) => {
@@ -506,7 +555,7 @@ exports.roomsInventorySummary = async (req, res) => {
 	const belongsToId = mongoose.Types.ObjectId(belongsTo);
 	const account_Id = mongoose.Types.ObjectId(accountId);
 	const startDate = new Date();
-	const dateRange = generateDateRange(startDate, 50);
+	const dateRange = generateDateRange(startDate, 70);
 
 	try {
 		const totalRoomsByType = await getTotalRoomsByType(belongsToId, account_Id);

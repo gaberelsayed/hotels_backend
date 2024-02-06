@@ -198,6 +198,12 @@ const reservationsSchema = new mongoose.Schema(
 		roomId: [{ type: ObjectId, ref: "Rooms", default: null }], //This could be left
 		belongsTo: { type: ObjectId, ref: "User" }, //this will be taken care of later
 		hotelId: { type: ObjectId, ref: "HotelDetails" }, //this will be taken care of later
+		housedBy: {
+			type: Object,
+			default: {
+				name: "",
+			},
+		},
 	},
 	{ timestamps: true }
 );

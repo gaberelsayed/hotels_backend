@@ -22,6 +22,7 @@ const {
 	getDistinctRoomTypesFromReservations,
 	reservedRoomsSummary,
 	roomsInventorySummary,
+	deleteRooms,
 } = require("../controllers/rooms");
 
 router.get("/room-single/:roomId", read);
@@ -43,6 +44,7 @@ router.put(
 );
 
 router.get("/room/:accountId/:mainUserId", list);
+router.delete("/room-deletion/:hotelId", deleteRooms);
 router.get("/distinct", getDistinctRoomTypes);
 router.get(
 	"/reservations-distinct-rooms",
