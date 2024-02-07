@@ -997,7 +997,9 @@ exports.expediaDataDump = async (req, res) => {
 		};
 
 		for (const item of data) {
-			const itemNumber = item["Reservation ID"]?.toString().trim();
+			const itemNumber = item["Confirmation #"]?.toString().trim()
+				? item["Confirmation #"]?.toString().trim()
+				: item["Reservation ID"]?.toString().trim();
 			if (!itemNumber) continue; // Skip if there's no book number
 
 			const daysOfResidence = calculateDaysOfResidence(
@@ -1057,11 +1059,14 @@ exports.expediaDataDump = async (req, res) => {
 				belongsTo: userId,
 			};
 
-			const existingReservation = await Reservations.findOne({
-				confirmation_number: itemNumber,
-				booking_source: "expedia",
-				hotelId: accountId,
-			});
+			const existingReservation = await Reservations.findOne(
+				{
+					confirmation_number: itemNumber,
+					booking_source: "expedia",
+					hotelId: accountId,
+				},
+				{ upsert: true, new: true }
+			);
 
 			if (existingReservation) {
 				await Reservations.updateOne(
