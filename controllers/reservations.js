@@ -1028,7 +1028,7 @@ exports.expediaDataDump = async (req, res) => {
 
 			// Prepare the document based on your mapping, including any necessary calculations
 			const document = {
-				confirmation_number: item["Reservation ID"] || item["Confirmation #"],
+				confirmation_number: item["Confirmation #"] || item["Reservation ID"],
 				booking_source: "expedia",
 				customer_details: {
 					name: item.Guest || "", // Assuming 'Guest' contains the full name
