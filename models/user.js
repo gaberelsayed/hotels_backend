@@ -98,6 +98,19 @@ const userSchema = new mongoose.Schema(
 			trim: true,
 			default: "",
 		},
+
+		subscribed: {
+			type: Boolean,
+			default: false,
+		},
+		subscriptionToken: {
+			type: String,
+			default: "unavailable",
+		},
+		subscriptionId: {
+			type: String,
+			default: "unavailable",
+		},
 	},
 	{ timestamps: true }
 );

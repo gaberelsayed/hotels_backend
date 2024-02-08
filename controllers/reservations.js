@@ -584,14 +584,19 @@ exports.singleReservationById = (req, res) => {
 };
 
 exports.reservationsList = (req, res) => {
-	const hotelId = mongoose.Types.ObjectId(req.params.accountId);
+	const hotelId = mongoose.Types.ObjectId(req.params.hotelId);
 	const userId = mongoose.Types.ObjectId(req.params.belongsTo);
 
+	// Start date at the beginning of the day in UTC
 	const startDate = new Date(req.params.startdate);
-	startDate.setHours(0, 0, 0, 0); // Set time to the start of the day
+	startDate.setUTCHours(0, 0, 0, 0);
 
+	// End date at the end of the day in UTC
 	const endDate = new Date(req.params.enddate);
-	endDate.setHours(23, 59, 59, 999); // Set time to the end of the day
+	endDate.setUTCHours(23, 59, 59, 999);
+
+	console.log(startDate, "startDate");
+	console.log(endDate, "endDate");
 
 	let queryConditions = {
 		hotelId: hotelId,

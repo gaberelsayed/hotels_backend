@@ -212,29 +212,6 @@ function extractBraintreeErrors(errors) {
 	return errorMessages;
 }
 
-// exports.processSubscription = (req, res) => {
-// 	console.log(req.body);
-// 	let nonceFromTheClient = req.body.paymentMethodNonce;
-// 	// let amountFromTheClient = req.body.amount;
-// 	// charge
-// 	let newTransaction = gateway.subscription.create(
-// 		{
-// 			paymentMethodToken: nonceFromTheClient,
-// 			planId: "Barbershop-Monthly-Basic",
-// 			merchantAccountId: process.env.BRAINTREE_MERCHANT_ID,
-// 			price: "40",
-// 		},
-// 		(error, result) => {
-// 			if (error) {
-// 				res.status(500).json(error);
-// 			} else {
-// 				console.log(result);
-// 				res.json(result);
-// 			}
-// 		},
-// 	);
-// };
-
 exports.processSubscription = (req, res) => {
 	console.log(
 		req.body,
@@ -288,19 +265,6 @@ exports.processSubscription = (req, res) => {
 		}
 	);
 };
-
-// const stream = gateway.subscription.search(
-// 	(search) => {
-// 		search.planId().is("quarterly_plan");
-// 		search.inTrialPeriod().is(true);
-
-// 	},
-// 	(err, response) => {
-// 		response.each((err, subscription) => {
-// 			console.log(subscription);
-// 		});
-// 	},
-// );
 
 exports.gettingBraintreeDataById = (req, res) => {
 	// console.log(req.body, "from getting data in braintree");
@@ -400,4 +364,64 @@ exports.gettingCurrencyConversion = (req, res) => {
 			// Handle any errors that occur during the API request
 			res.status(500).json({ error: error.message });
 		});
+};
+
+exports.updateSubscriptionCard = (req, res) => {
+	let paymentMethodToken = req.body.paymentMethodToken;
+	let subscriptionId = req.body.subscriptionId;
+	gateway.paymentMethod.update(
+		paymentMethodToken,
+		{
+			paymentMethodNonce: req.body.paymentMethodNonce,
+		},
+		function (err, result) {
+			if (err) {
+				res.status(500).json(err);
+			} else {
+				gateway.subscription.update(
+					subscriptionId,
+					{
+						paymentMethodToken: result.paymentMethod.token,
+					},
+					function (err, result) {
+						if (err) {
+							res.status(500).json(err);
+						} else {
+							res.json(result);
+						}
+					}
+				);
+			}
+		}
+	);
+};
+
+exports.getSubscriptionData = (req, res) => {
+	const { subscriptionId } = req.params;
+
+	gateway.subscription.find(subscriptionId, (err, subscription) => {
+		if (err) {
+			console.error("error retrieving subscription", err);
+			res.status(500).send(err);
+		} else {
+			res.send(subscription);
+		}
+	});
+};
+
+exports.getStoredPaymentData = (req, res) => {
+	let paymentMethodToken = req.params.token;
+
+	gateway.paymentMethod.find(paymentMethodToken, function (err, paymentMethod) {
+		if (err) {
+			console.log(err, "error retrieving payment method");
+			res.status(500).json(err);
+		} else {
+			res.json({
+				last4: paymentMethod.last4,
+				cardType: paymentMethod.cardType,
+				expirationDate: paymentMethod.expirationDate,
+			});
+		}
+	});
 };

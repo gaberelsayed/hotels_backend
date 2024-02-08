@@ -76,7 +76,7 @@ router.get(
 );
 
 router.get(
-	"/reservations/:startdate/:enddate/:belongsTo/:accountId/",
+	"/reservations/:startdate/:enddate/:hotelId/:belongsTo",
 	reservationsList
 );
 router.get(
