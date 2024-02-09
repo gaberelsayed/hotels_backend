@@ -363,7 +363,7 @@ function calculateDaysBetweenDates(startDate, endDate) {
 
 exports.getListOfReservations = async (req, res) => {
 	try {
-		const { page, records, filters, hotelId, date } = req.params;
+		const { page, records, filters, hotelId } = req.params;
 		const parsedPage = parseInt(page);
 		const parsedRecords = parseInt(records);
 
@@ -375,47 +375,80 @@ exports.getListOfReservations = async (req, res) => {
 			return res.status(400).send("Invalid parameters");
 		}
 
-		const today = new Date();
-		const yesterday = new Date();
-		yesterday.setDate(today.getDate() - 1);
+		const parsedFilters = JSON.parse(filters);
+		let dynamicFilter = { hotelId: ObjectId(hotelId) };
 
-		const startOfYesterday = new Date(yesterday.setHours(0, 0, 0, 0));
+		const today = new Date();
+		const startOfToday = new Date(today.setHours(0, 0, 0, 0));
 		const endOfToday = new Date(today.setHours(23, 59, 59, 999));
 
-		const parsedFilters = JSON.parse(filters);
-		const startDate = new Date(`${date}T00:00:00+03:00`);
-		const endDate = new Date(`${date}T23:59:59+03:00`);
-
-		let dynamicFilter = { hotelId: ObjectId(hotelId) };
-		switch (parsedFilters.selectedFilter) {
-			case "Today's New Reservations":
-				dynamicFilter.booked_at = { $gte: startOfYesterday, $lte: endOfToday };
-				break;
-			case "Cancelations":
-				dynamicFilter.reservation_status = {
-					$in: ["cancelled_by_guest", "canceled", "Cancelled", "cancelled"],
-				};
-				break;
-			case "Today's Arrivals":
-				dynamicFilter.checkin_date = { $gte: startDate, $lte: endDate };
-				break;
-			case "Today's Departures":
-				dynamicFilter.checkout_date = { $gte: startDate, $lte: endDate };
-				break;
-			case "Incomplete reservations":
-				dynamicFilter.reservation_status = { $nin: ["closed", "canceled"] };
-				break;
-			case "In House":
-				dynamicFilter.reservation_status = { $eq: "inhouse" };
-				break;
-			// other cases...
+		// Adjusted approach for handling specific dates directly
+		if (parsedFilters.selectedFilter === "Specific Date") {
+			const checkinDate = new Date(`${req.params.date}T00:00:00+03:00`);
+			dynamicFilter.checkin_date = {
+				$gte: checkinDate,
+				$lt: new Date(checkinDate.getTime() + 86400000),
+			}; // Adding 24 hours in milliseconds
+		} else if (parsedFilters.selectedFilter === "Specific Date2") {
+			const checkoutDate = new Date(`${req.params.date}T00:00:00+03:00`);
+			dynamicFilter.checkout_date = {
+				$gte: checkoutDate,
+				$lt: new Date(checkoutDate.getTime() + 86400000),
+			};
+		} else if (parsedFilters.selectedFilter === "no_show") {
+			// Assuming req.params.date is correctly passed; otherwise, use parsedFilters.date or a similar approach
+			const checkinDate = new Date(`${req.params.date}T00:00:00+03:00`);
+			dynamicFilter.checkin_date = {
+				$gte: checkinDate,
+				$lt: new Date(checkinDate.getTime() + 86400000), // Covering the entire day
+			};
+			dynamicFilter.reservation_status = {
+				$regex: "show", // Use a regular expression to match the status text
+				$options: "i", // Case-insensitive matching
+			};
+		} else {
+			// Handling other filters using a switch statement
+			switch (parsedFilters.selectedFilter) {
+				case "Today's New Reservations":
+					dynamicFilter.booked_at = { $gte: startOfToday, $lte: endOfToday };
+					break;
+				case "Cancelations":
+					dynamicFilter.reservation_status = {
+						$in: ["cancelled_by_guest", "canceled", "Cancelled", "cancelled"],
+					};
+					break;
+				case "Today's Arrivals":
+					dynamicFilter.checkin_date = { $gte: startOfToday, $lte: endOfToday };
+					break;
+				case "Today's Departures":
+					dynamicFilter.checkout_date = {
+						$gte: startOfToday,
+						$lte: endOfToday,
+					};
+					break;
+				case "Incomplete reservations":
+					dynamicFilter.reservation_status = { $nin: ["closed", "canceled"] };
+					break;
+				case "In House":
+					dynamicFilter.reservation_status = { $eq: "inhouse" };
+					break;
+				// Additional cases as needed
+			}
 		}
 
 		const pipeline = [
 			{ $match: dynamicFilter },
-			{ $sort: { booked_at: -1 } }, // Sort by booked_at in descending order
+			{ $sort: { booked_at: -1 } },
 			{ $skip: (parsedPage - 1) * parsedRecords },
 			{ $limit: parsedRecords },
+			{
+				$lookup: {
+					from: "rooms",
+					localField: "roomId",
+					foreignField: "_id",
+					as: "roomDetails",
+				},
+			},
 		];
 
 		const reservations = await Reservations.aggregate(pipeline);
@@ -428,58 +461,206 @@ exports.getListOfReservations = async (req, res) => {
 
 exports.totalRecordsReservations = async (req, res) => {
 	try {
-		const { page, records, filters, hotelId, date } = req.params;
-		const parsedPage = parseInt(page);
-		const parsedRecords = parseInt(records);
+		const { filters, hotelId } = req.params;
 
-		if (
-			isNaN(parsedPage) ||
-			isNaN(parsedRecords) ||
-			!ObjectId.isValid(hotelId)
-		) {
+		if (!ObjectId.isValid(hotelId)) {
 			return res.status(400).send("Invalid parameters");
 		}
 
-		const today = new Date();
-		const yesterday = new Date();
-		yesterday.setDate(today.getDate() - 1);
+		const parsedFilters = JSON.parse(filters);
+		let dynamicFilter = { hotelId: ObjectId(hotelId) };
 
-		const startOfYesterday = new Date(yesterday.setHours(0, 0, 0, 0));
+		const today = new Date();
+		const startOfToday = new Date(today.setHours(0, 0, 0, 0));
 		const endOfToday = new Date(today.setHours(23, 59, 59, 999));
 
-		const parsedFilters = JSON.parse(filters);
-		const startDate = new Date(`${date}T00:00:00+03:00`);
-		const endDate = new Date(`${date}T23:59:59+03:00`);
-
-		let dynamicFilter = { hotelId: ObjectId(hotelId) };
-		switch (parsedFilters.selectedFilter) {
-			case "Today's New Reservations":
-				dynamicFilter.booked_at = { $gte: startOfYesterday, $lte: endOfToday };
-				break;
-			case "Cancelations":
-				dynamicFilter.reservation_status = {
-					$in: ["cancelled_by_guest", "canceled", "Cancelled", "cancelled"],
-				};
-				break;
-			case "Today's Arrivals":
-				dynamicFilter.checkin_date = { $gte: startDate, $lte: endDate };
-				break;
-			case "Today's Departures":
-				dynamicFilter.checkout_date = { $gte: startDate, $lte: endDate };
-				break;
-			case "Incomplete reservations":
-				dynamicFilter.reservation_status = { $nin: ["closed", "canceled"] };
-				break;
-			case "In House":
-				dynamicFilter.reservation_status = { $eq: "inhouse" };
-				break;
-			// other cases...
+		// Adjusted approach for handling specific dates directly
+		if (parsedFilters.selectedFilter === "Specific Date") {
+			const checkinDate = new Date(`${req.params.date}T00:00:00+03:00`);
+			dynamicFilter.checkin_date = {
+				$gte: checkinDate,
+				$lt: new Date(checkinDate.getTime() + 86400000), // Adding 24 hours in milliseconds
+			};
+		} else if (parsedFilters.selectedFilter === "Specific Date2") {
+			const checkoutDate = new Date(`${req.params.date}T00:00:00+03:00`);
+			dynamicFilter.checkout_date = {
+				$gte: checkoutDate,
+				$lt: new Date(checkoutDate.getTime() + 86400000),
+			};
+		} else if (parsedFilters.selectedFilter === "no_show") {
+			// Assuming req.params.date is correctly passed; otherwise, use parsedFilters.date or a similar approach
+			const noShowDate = new Date(`${req.params.date}T00:00:00+03:00`);
+			dynamicFilter.checkin_date = {
+				$gte: noShowDate,
+				$lt: new Date(noShowDate.getTime() + 86400000), // Covering the entire day
+			};
+			dynamicFilter.reservation_status = {
+				$regex: "no_show", // Use a regular expression to match the status text
+				$options: "i", // Case-insensitive matching
+			};
+		} else {
+			// Handling other filters using a switch statement
+			switch (parsedFilters.selectedFilter) {
+				case "Today's New Reservations":
+					dynamicFilter.booked_at = { $gte: startOfToday, $lte: endOfToday };
+					break;
+				case "Cancelations":
+					dynamicFilter.reservation_status = {
+						$in: ["cancelled_by_guest", "canceled", "Cancelled", "cancelled"],
+					};
+					break;
+				case "Today's Arrivals":
+					dynamicFilter.checkin_date = { $gte: startOfToday, $lte: endOfToday };
+					break;
+				case "Today's Departures":
+					dynamicFilter.checkout_date = {
+						$gte: startOfToday,
+						$lte: endOfToday,
+					};
+					break;
+				case "Incomplete reservations":
+					dynamicFilter.reservation_status = { $nin: ["closed", "canceled"] };
+					break;
+				case "In House":
+					dynamicFilter.reservation_status = { $eq: "inhouse" };
+					break;
+				// Additional cases as needed
+			}
 		}
 
 		const total = await Reservations.countDocuments(dynamicFilter);
 		res.json({ total });
 	} catch (error) {
 		console.error("Error fetching total records:", error);
+		res.status(500).send("Server error");
+	}
+};
+
+exports.reservationObjectSummary = async (req, res) => {
+	try {
+		const { accountId, date } = req.params;
+		const formattedDate = new Date(`${date}T00:00:00+03:00`); // Adjust timezone as necessary
+		const nextDay = new Date(formattedDate.getTime() + 86400000); // Add 24 hours to get the next day
+
+		const aggregation = await Reservations.aggregate([
+			{ $match: { hotelId: mongoose.Types.ObjectId(accountId) } },
+			{
+				$addFields: {
+					// Convert dates to start of day for comparison
+					bookedAtStartOfDay: {
+						$dateFromParts: {
+							year: { $year: "$booked_at" },
+							month: { $month: "$booked_at" },
+							day: { $dayOfMonth: "$booked_at" },
+							timezone: "Asia/Riyadh",
+						},
+					},
+					checkinStartOfDay: {
+						$dateFromParts: {
+							year: { $year: "$checkin_date" },
+							month: { $month: "$checkin_date" },
+							day: { $dayOfMonth: "$checkin_date" },
+							timezone: "Asia/Riyadh",
+						},
+					},
+					checkoutStartOfDay: {
+						$dateFromParts: {
+							year: { $year: "$checkout_date" },
+							month: { $month: "$checkout_date" },
+							day: { $dayOfMonth: "$checkout_date" },
+							timezone: "Asia/Riyadh",
+						},
+					},
+				},
+			},
+			{
+				$group: {
+					_id: null,
+					newReservations: {
+						$sum: {
+							$cond: [{ $eq: ["$bookedAtStartOfDay", formattedDate] }, 1, 0],
+						},
+					},
+					cancellations: {
+						$sum: {
+							$cond: [
+								{
+									$regexMatch: {
+										input: "$reservation_status",
+										regex: /cancelled|canceled/i,
+									},
+								},
+								1,
+								0,
+							],
+						},
+					},
+					todayArrival: {
+						$sum: {
+							$cond: [{ $eq: ["$checkinStartOfDay", formattedDate] }, 1, 0],
+						},
+					},
+					departureToday: {
+						$sum: {
+							$cond: [{ $eq: ["$checkoutStartOfDay", formattedDate] }, 1, 0],
+						},
+					},
+					inHouse: {
+						$sum: {
+							$cond: [
+								{
+									$regexMatch: {
+										input: "$reservation_status",
+										regex: /house/i,
+									},
+								},
+								1,
+								0,
+							],
+						},
+					},
+					inComplete: {
+						$sum: {
+							$cond: [
+								{
+									$and: [
+										{
+											$not: {
+												$regexMatch: {
+													input: "$reservation_status",
+													regex: /cancelled|canceled|checkedout|show|house/i,
+												},
+											},
+										},
+									],
+								},
+								1,
+								0,
+							],
+						},
+					},
+					allReservations: { $sum: 1 }, // Count all reservations/documents
+				},
+			},
+		]);
+
+		// Since aggregation always returns an array, we take the first element
+		const summary =
+			aggregation.length > 0
+				? aggregation[0]
+				: {
+						newReservations: 0,
+						cancellations: 0,
+						todayArrival: 0,
+						departureToday: 0,
+						inHouse: 0,
+						inComplete: 0,
+						allReservations: 0,
+				  };
+
+		res.json(summary);
+	} catch (error) {
+		console.error("Error fetching reservation summary:", error);
 		res.status(500).send("Server error");
 	}
 };

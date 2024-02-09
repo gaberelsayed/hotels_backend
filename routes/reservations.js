@@ -34,6 +34,7 @@ const {
 	deleteByHotelId,
 	singleReservationById,
 	sendPaymentLinkEmail,
+	reservationObjectSummary,
 } = require("../controllers/reservations");
 
 router.post(
@@ -113,6 +114,7 @@ router.get("/reservations2/:accountId", reservationsList2);
 router.put("/reservation-update/:reservationId", updateReservation);
 router.post("/send-reservation-email", sendReservationEmail);
 router.post("/send-payment-link-email", sendPaymentLinkEmail);
+router.get("/reservations-summary/:accountId/:date", reservationObjectSummary);
 
 //Reports
 router.get("/dayoverday/:hotelId/:userMainId", dayoverday);
