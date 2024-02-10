@@ -1318,10 +1318,12 @@ exports.airbnb = async (req, res) => {
 		};
 
 		const parseEarnings = (earningsString) => {
-			// This regular expression matches optional currency symbols and extracts digits and decimal points
-			const matches = earningsString.match(/[\d\.]+/);
+			// This regular expression matches optional currency symbols and extracts digits, commas, and decimal points
+			const matches = earningsString.match(/[\d,]+\.?\d*/);
 			if (matches) {
-				return parseFloat(matches[0]);
+				// Remove commas before parsing as a float
+				const numberWithoutCommas = matches[0].replace(/,/g, "");
+				return parseFloat(numberWithoutCommas);
 			} else {
 				return 0; // Return 0 if no matching numeric part is found
 			}
