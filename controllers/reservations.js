@@ -1351,8 +1351,9 @@ exports.airbnb = async (req, res) => {
 				{
 					room_type: roomType,
 					chosenPrice:
-						Number(item["Booking amount"] / item["# of nights"]).toFixed(2) ||
-						0,
+						Number(
+							item["Booking amount"] / Number(item["# of nights"])
+						).toFixed(2) || 0,
 					count: 1, // Assuming each record is for one room. Adjust accordingly if you have more details.
 				},
 			];
