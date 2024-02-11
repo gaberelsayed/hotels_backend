@@ -101,9 +101,17 @@ const confirmationEmail = (reservationData) => {
                     <th>Paid Amount</th>
                     <td>${reservationData.paid_amount}</td>
                     </tr>
+
                     <tr>
                         <th>Order Total</th>
                         <td>${reservationData.total_amount.toLocaleString()} SAR</td>
+                    </tr>
+                    <tr>
+                     <th>Amount Due</th>
+                    <td>${
+											Number(reservationData.total_amount) -
+											Number(reservationData.paid_amount)
+										}</td>
                     </tr>
                 </table>
                 <p><strong>Booking Date:</strong> ${bookedAtSaudi}</p>
@@ -226,6 +234,13 @@ const reservationUpdate = (reservationData, hotelName) => {
                     <th>Order Total</th>
                     <td>${reservationData.total_amount.toLocaleString()} SAR</td>
                 </tr>
+                <tr>
+                <th>Amount Due</th>
+               <td>${
+									Number(reservationData.total_amount) -
+									Number(reservationData.paid_amount)
+								}</td>
+               </tr>
             </table>
             <p><strong>Booking Date:</strong> ${bookedAtSaudi}</p>
         </div>
