@@ -98,6 +98,10 @@ const confirmationEmail = (reservationData) => {
                         <td>${reservationData.payment}</td>
                     </tr>
                     <tr>
+                    <th>Paid Amount</th>
+                    <td>${reservationData.paid_amount}</td>
+                    </tr>
+                    <tr>
                         <th>Order Total</th>
                         <td>${reservationData.total_amount.toLocaleString()} SAR</td>
                     </tr>
@@ -214,6 +218,9 @@ const reservationUpdate = (reservationData, hotelName) => {
             <tr>
                 <th>Payment Status</th>
                 <td>${reservationData.payment}</td>
+            </tr>
+            <th>Paid Amount</th>
+            <td>${reservationData.paid_amount}</td>
             </tr>
                 <tr>
                     <th>Order Total</th>
