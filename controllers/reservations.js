@@ -219,28 +219,72 @@ exports.reservationSearchAllList = async (req, res) => {
 		const { searchQuery, accountId } = req.params;
 		const hotelId = mongoose.Types.ObjectId(accountId);
 
-		// Create a regex pattern to match the search query in a case-insensitive manner
-		const searchPattern = new RegExp(searchQuery, "i");
+		// Check if search query starts with 'r' followed by digits
+		const isRoomSearch = /^r\d+$/i.test(searchQuery);
+		let roomNumberSearchPattern;
+		if (isRoomSearch) {
+			// Extract the room number from the search query
+			roomNumberSearchPattern = new RegExp(searchQuery.substring(1), "i");
+		} else {
+			// Regular search pattern for other fields
+			roomNumberSearchPattern = new RegExp(searchQuery, "i");
+		}
 
-		// Query to search across various fields
-		const query = {
-			hotelId: hotelId,
-			$or: [
-				{ "customer_details.name": searchPattern },
-				{ "customer_details.phone": searchPattern },
-				{ "customer_details.email": searchPattern },
-				{ "customer_details.passport": searchPattern },
-				{ "customer_details.passportExpiry": searchPattern },
-				{ "customer_details.nationality": searchPattern },
-				{ confirmation_number: searchPattern },
-				{ reservation_id: searchPattern },
-				{ reservation_status: searchPattern },
-				{ booking_source: searchPattern },
-			],
-		};
+		let pipeline = [
+			{ $match: { hotelId: hotelId } },
+			// Lookup (populate) roomId details
+			{
+				$lookup: {
+					from: "rooms",
+					localField: "roomId",
+					foreignField: "_id",
+					as: "roomDetails",
+				},
+			},
+			// Lookup (populate) belongsTo details
+			{
+				$lookup: {
+					from: "users",
+					localField: "belongsTo",
+					foreignField: "_id",
+					as: "belongsToDetails",
+				},
+			},
+		];
 
-		// Fetch all matching documents
-		const reservations = await Reservations.find(query).populate("belongsTo");
+		// Conditionally adjust the match stage based on the search type
+		if (isRoomSearch) {
+			// Add match stage for room number search
+			pipeline.push({
+				$match: {
+					"roomDetails.room_number": roomNumberSearchPattern,
+				},
+			});
+		} else {
+			// Add match stage for general search
+			pipeline.push({
+				$match: {
+					$or: [
+						{ "customer_details.name": roomNumberSearchPattern },
+						{ "customer_details.phone": roomNumberSearchPattern },
+						{ "customer_details.email": roomNumberSearchPattern },
+						{ "customer_details.passport": roomNumberSearchPattern },
+						{ "customer_details.passportExpiry": roomNumberSearchPattern },
+						{ "customer_details.nationality": roomNumberSearchPattern },
+						{ confirmation_number: roomNumberSearchPattern },
+						{ reservation_id: roomNumberSearchPattern },
+						{ reservation_status: roomNumberSearchPattern },
+						{ booking_source: roomNumberSearchPattern },
+						{ payment: roomNumberSearchPattern },
+						// Include room number search in general search as well
+						{ "roomDetails.room_number": roomNumberSearchPattern },
+					],
+				},
+			});
+		}
+
+		// Execute the aggregation pipeline
+		const reservations = await Reservations.aggregate(pipeline);
 
 		if (reservations.length === 0) {
 			return res.status(404).json({
