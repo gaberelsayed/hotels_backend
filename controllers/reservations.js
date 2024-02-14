@@ -3,10 +3,12 @@ const mongoose = require("mongoose");
 const ObjectId = mongoose.Types.ObjectId;
 const fetch = require("node-fetch");
 const Rooms = require("../models/rooms");
+const HouseKeeping = require("../models/housekeeping");
 const xlsx = require("xlsx");
 const sgMail = require("@sendgrid/mail");
 const puppeteer = require("puppeteer");
 const moment = require("moment-timezone");
+const saudiDateTime = moment().tz("Asia/Riyadh").format();
 const {
 	confirmationEmail,
 	reservationUpdate,
@@ -122,6 +124,21 @@ exports.create = async (req, res) => {
 	console.log(req.body.hotelName, "req.body.hotelName");
 
 	const saveReservation = async (reservationData) => {
+		// Check if roomId array is present and has length more than 0
+		if (reservationData.roomId && reservationData.roomId.length > 0) {
+			try {
+				// Update cleanRoom field for all rooms in the roomId array
+				await Rooms.updateMany(
+					{ _id: { $in: reservationData.roomId } },
+					{ $set: { cleanRoom: false } }
+				);
+			} catch (err) {
+				console.error("Error updating Rooms cleanRoom status", err);
+				// Optionally, handle the error, for example, by returning a response
+				// return res.status(500).json({ error: "Error updating room status" });
+			}
+		}
+
 		const reservations = new Reservations(reservationData);
 		try {
 			const data = await reservations.save();
@@ -937,6 +954,52 @@ exports.updateReservation = async (req, res) => {
 				return res.status(404).json({ error: "Reservation not found" });
 			}
 
+			// Check if the reservation status is "inhouse" or "InHouse" and roomId array is present and not empty
+			if (
+				(updateData.reservation_status.toLowerCase() === "inhouse" ||
+					updateData.reservation_status === "InHouse") &&
+				updateData.roomId &&
+				updateData.roomId.length > 0
+			) {
+				try {
+					// Update cleanRoom field for all rooms in the roomId array
+					await Rooms.updateMany(
+						{ _id: { $in: updateData.roomId } },
+						{ $set: { cleanRoom: false } }
+					);
+				} catch (err) {
+					console.error("Error updating Rooms cleanRoom status", err);
+					// Optionally, handle the error, for example, by returning a response
+					// return res.status(500).json({ error: "Error updating room status" });
+				}
+			}
+
+			// Check if the reservation status includes "checkedout"
+			if (
+				updatedReservation &&
+				updatedReservation.reservation_status &&
+				updatedReservation.reservation_status
+					.toLowerCase()
+					.includes("checked_out")
+			) {
+				// Check if a HouseKeeping document with the same confirmation_number does not already exist
+				const existingTask = await HouseKeeping.findOne({
+					confirmation_number: updatedReservation.confirmation_number,
+				});
+				if (!existingTask) {
+					// Create a new HouseKeeping document
+					const newHouseKeepingTask = new HouseKeeping({
+						taskDate: new Date(saudiDateTime),
+						confirmation_number: updatedReservation.confirmation_number,
+						rooms: updatedReservation.roomId, // Assuming updateData.roomId contains the ID of the room to clean
+						hotelId: updatedReservation.hotelId, // Assuming you have hotelId in updateData
+						task_comment: "Guest Checked Out",
+						// Add any other fields you need to initialize
+					});
+					await newHouseKeepingTask.save();
+				}
+			}
+
 			// Prepare and send the update email
 			try {
 				if (req.body.sendEmail) {
@@ -948,7 +1011,6 @@ exports.updateReservation = async (req, res) => {
 				});
 			} catch (error) {
 				console.error("Error sending update email:", error);
-				// Decide how you want to handle email errors - maybe just log or send a different response
 				res.status(500).json({
 					message: "Reservation updated, but failed to send email",
 					error: error.toString(),
@@ -1107,7 +1169,7 @@ exports.agodaDataDump = async (req, res) => {
 					phone: item.Customer_Phone || "",
 					email: item.Customer_Email || "",
 				},
-				state: "confirmed",
+				state: item.Status ? item.Status : "confirmed",
 				reservation_status: item.Status.toLowerCase().includes("cancelled")
 					? "cancelled"
 					: item.Status.toLowerCase().includes("show")
@@ -1265,7 +1327,7 @@ exports.expediaDataDump = async (req, res) => {
 				customer_details: {
 					name: item.Guest || "", // Assuming 'Guest' contains the full name
 				},
-				state: "confirmed",
+				state: item.Status ? item.Status : "confirmed",
 				reservation_status: item.Status.toLowerCase().includes("cancelled")
 					? "cancelled"
 					: item.Status.toLowerCase().includes("show")
@@ -1425,7 +1487,7 @@ exports.airbnb = async (req, res) => {
 					name: item["Guest name"] || "", // Assuming 'Guest' contains the full name
 					phone: item["Contact"] || "", // Assuming 'Guest' contains the full name
 				},
-				state: "confirmed",
+				state: item.Status ? item.Status : "confirmed",
 				reservation_status:
 					item.Status.toLowerCase().includes("cancelled") ||
 					item.Status.toLowerCase().includes("canceled")
@@ -1622,7 +1684,7 @@ exports.bookingDataDump = async (req, res) => {
 				customer_details: {
 					name: item["guest name(s)"] || "", // Assuming 'Guest Name(s)' contains the full name
 				},
-				state: "confirmed",
+				state: item.status ? item.status : "confirmed",
 				reservation_status: item.status.toLowerCase().includes("cancelled")
 					? "cancelled"
 					: item.status.toLowerCase().includes("show")
@@ -2033,5 +2095,61 @@ exports.reservationstatus = async (req, res) => {
 		res.json(aggregation);
 	} catch (error) {
 		res.status(500).send(error);
+	}
+};
+
+exports.CheckedOutReservations = async (req, res) => {
+	try {
+		const { page, records, hotelId } = req.params;
+		const parsedPage = parseInt(page);
+		const parsedRecords = parseInt(records);
+
+		if (
+			isNaN(parsedPage) ||
+			isNaN(parsedRecords) ||
+			!ObjectId.isValid(hotelId)
+		) {
+			return res.status(400).send("Invalid parameters");
+		}
+
+		let dynamicFilter = {
+			hotelId: ObjectId(hotelId),
+			reservation_status: "checked_out",
+			"roomId.0": { $exists: true }, // Ensure at least one roomId exists
+		};
+
+		// Calculate dates for the filter: 2 days ago to 2 days in advance
+		const today = new Date();
+		const twoDaysAgo = new Date(today);
+		twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+		const twoDaysInAdvance = new Date(today);
+		twoDaysInAdvance.setDate(twoDaysInAdvance.getDate() + 2);
+
+		// Filter for checkout_date to include dates from 2 days ago up to 2 days in advance
+		dynamicFilter.checkout_date = {
+			$gte: twoDaysAgo,
+			$lte: twoDaysInAdvance,
+		};
+
+		const pipeline = [
+			{ $match: dynamicFilter },
+			{ $sort: { booked_at: -1 } },
+			{ $skip: (parsedPage - 1) * parsedRecords },
+			{ $limit: parsedRecords },
+			{
+				$lookup: {
+					from: "rooms",
+					localField: "roomId",
+					foreignField: "_id",
+					as: "roomDetails",
+				},
+			},
+		];
+
+		const reservations = await Reservations.aggregate(pipeline);
+		res.json(reservations);
+	} catch (error) {
+		console.error(error);
+		res.status(500).send("Server error: " + error.message);
 	}
 };

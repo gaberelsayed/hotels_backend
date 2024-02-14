@@ -17,6 +17,7 @@ const {
 	updateUserByAdmin,
 	updatedUserId,
 	getSingleUser,
+	houseKeepingStaff,
 } = require("../controllers/user");
 
 router.get("/secret/:userId", requireSignin, isAuth, isAdmin, (req, res) => {
@@ -32,7 +33,6 @@ router.get(
 	"/account-data/:accountId/:userId",
 	requireSignin,
 	isAuth,
-	isHotelOwner,
 	getSingleUser
 );
 
@@ -43,6 +43,7 @@ router.put(
 	isAdmin,
 	updateUserByAdmin
 );
+router.get("/house-keeping-staff/:hotelId", houseKeepingStaff);
 
 router.param("userId", userById);
 router.param("updatedUserId", updatedUserId);

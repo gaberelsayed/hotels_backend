@@ -245,3 +245,21 @@ exports.getSingleUser = (req, res) => {
 			res.json(user); // Send the user data as a response
 		});
 };
+
+exports.houseKeepingStaff = async (req, res) => {
+	const { hotelId } = req.params;
+
+	try {
+		const staffList = await User.find({
+			hotelIdWork: hotelId,
+			role: 5000,
+		}).select("_id name email role"); // You can adjust the fields you want to select
+
+		res.json(staffList);
+	} catch (err) {
+		console.error(err);
+		res.status(500).json({
+			error: "Error retrieving housekeeping staff list",
+		});
+	}
+};

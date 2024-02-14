@@ -612,7 +612,7 @@ async function calculateDailyInventory(
 			const overlappingReservations = await Reservations.find({
 				belongsTo: belongsToId,
 				hotelId: accountId,
-				reservation_status: { $ne: "cancelled" },
+				reservation_status: { $nin: ["cancelled", "no_show"] }, // Exclude both cancelled and no_show statuses
 				checkin_date: { $lte: date },
 				checkout_date: { $gt: date },
 			});

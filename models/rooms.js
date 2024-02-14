@@ -63,6 +63,11 @@ const roomsSchema = new mongoose.Schema(
 			default: true,
 		},
 
+		cleanRoom: {
+			type: Boolean,
+			default: true,
+		},
+
 		belongsTo: { type: ObjectId, ref: "User" },
 		hotelId: { type: ObjectId, ref: "HotelDetails" },
 	},

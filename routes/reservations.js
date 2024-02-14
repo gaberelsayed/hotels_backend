@@ -35,6 +35,7 @@ const {
 	singleReservationById,
 	sendPaymentLinkEmail,
 	reservationObjectSummary,
+	CheckedOutReservations,
 } = require("../controllers/reservations");
 
 router.post(
@@ -48,6 +49,11 @@ router.post(
 router.get(
 	"/reservations/list/:page/:records/:filters/:hotelId/:date",
 	getListOfReservations
+);
+
+router.get(
+	"/checkedout-reservations/list/:page/:records/:hotelId",
+	CheckedOutReservations
 );
 
 router.get(
