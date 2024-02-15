@@ -854,6 +854,7 @@ exports.reservationsList = (req, res) => {
 			},
 		],
 		roomId: { $exists: true, $ne: [], $not: { $elemMatch: { $eq: null } } },
+		reservation_status: { $not: /checked_out/i }, // This line filters out statuses containing "checked_out"
 	};
 
 	Reservations.find(queryConditions)
@@ -1199,6 +1200,10 @@ exports.agodaDataDump = async (req, res) => {
 				pickedRoomsType,
 				hotelId: accountId,
 				belongsTo: userId,
+				paid_amount:
+					item.PaymentModel.toLowerCase() === "agoda collect"
+						? totalAmount.toFixed(2)
+						: 0,
 			};
 
 			const existingReservation = await Reservations.findOne({
@@ -1357,6 +1362,10 @@ exports.expediaDataDump = async (req, res) => {
 				commision: item.Commission, // Ensure this field exists in your schema
 				hotelId: accountId,
 				belongsTo: userId,
+				paid_amount:
+					item["Payment type"].toLowerCase() === "expedia collect"
+						? item["Booking amount"]
+						: 0,
 			};
 
 			const existingReservation = await Reservations.findOne(
@@ -1521,6 +1530,7 @@ exports.airbnb = async (req, res) => {
 				commision: item.Commission ? item.Commission : 0, // Ensure this field exists in your schema
 				hotelId: accountId,
 				belongsTo: userId,
+				paid_amount: parseEarnings(item.Earnings),
 			};
 
 			const existingReservation = await Reservations.findOne({
