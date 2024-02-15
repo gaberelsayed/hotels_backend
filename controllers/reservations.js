@@ -843,8 +843,16 @@ exports.reservationsList = (req, res) => {
 	let queryConditions = {
 		hotelId: hotelId,
 		belongsTo: userId,
-		checkin_date: { $gte: startDate },
-		checkout_date: { $lte: endDate },
+		$or: [
+			{ checkin_date: { $gte: startDate, $lte: endDate } },
+			{ checkout_date: { $gte: startDate, $lte: endDate } },
+			{
+				$and: [
+					{ checkin_date: { $lte: startDate } },
+					{ checkout_date: { $gte: endDate } },
+				],
+			},
+		],
 		roomId: { $exists: true, $ne: [], $not: { $elemMatch: { $eq: null } } },
 	};
 
