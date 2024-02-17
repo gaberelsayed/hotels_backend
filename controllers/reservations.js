@@ -1890,6 +1890,11 @@ exports.janatDataDump = async (req, res) => {
 				continue; // Skip this item if dates are invalid
 			}
 
+			const commisionUpdate = Number(
+				(Number(totalAmount) + Number(commission) + Number(totalAmount) * 0.1) *
+					0.1
+			).toFixed(2);
+
 			// Prepare the document based on your mapping, including any necessary calculations
 			const document = {
 				confirmation_number: item["book number"] || "",
@@ -1917,12 +1922,7 @@ exports.janatDataDump = async (req, res) => {
 				booking_comment: item.remarks || "",
 				payment: item["payment status"] ? item["payment status"] : "Not Paid",
 				pickedRoomsType,
-				commission: Number(
-					(Number(totalAmount) +
-						Number(commission) +
-						Number(totalAmount) * 0.1) *
-						0.1
-				).toFixed(2), // Ensure this field exists in your schema
+				commission: commisionUpdate, // Ensure this field exists in your schema
 				hotelId: accountId,
 				belongsTo: userId,
 			};
