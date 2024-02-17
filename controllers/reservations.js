@@ -1917,7 +1917,12 @@ exports.janatDataDump = async (req, res) => {
 				booking_comment: item.remarks || "",
 				payment: item["payment status"] ? item["payment status"] : "Not Paid",
 				pickedRoomsType,
-				commission: commission, // Ensure this field exists in your schema
+				commission: Number(
+					(Number(totalAmount) +
+						Number(commission) +
+						Number(totalAmount) * 0.1) *
+						0.1
+				).toFixed(2), // Ensure this field exists in your schema
 				hotelId: accountId,
 				belongsTo: userId,
 			};
