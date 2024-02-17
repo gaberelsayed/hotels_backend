@@ -1774,6 +1774,201 @@ exports.bookingDataDump = async (req, res) => {
 	}
 };
 
+exports.janatDataDump = async (req, res) => {
+	try {
+		const accountId = req.params.accountId;
+		const userId = req.params.belongsTo;
+		const filePath = req.file.path; // The path to the uploaded file
+		const workbook = xlsx.readFile(filePath);
+		const sheetName = workbook.SheetNames[0];
+		const sheet = workbook.Sheets[sheetName];
+		let data = xlsx.utils.sheet_to_json(sheet); // Convert the sheet data to JSON
+
+		// Convert keys of each item in data to lowercase
+		data = data.map((item) => {
+			const newItem = {};
+			for (const key in item) {
+				if (item.hasOwnProperty(key) && key) {
+					newItem[key.toLowerCase()] = item[key];
+				}
+			}
+			return newItem;
+		});
+
+		const calculateDaysOfResidence = (checkIn, checkOut) => {
+			const checkInDate = new Date(new Date(checkIn).setHours(0, 0, 0, 0));
+			const checkOutDate = new Date(new Date(checkOut).setHours(0, 0, 0, 0));
+
+			if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
+				return 0; // Return 0 if dates are invalid
+			}
+
+			const diffInTime = checkOutDate.getTime() - checkInDate.getTime();
+			const diffInDays = diffInTime / (1000 * 3600 * 24);
+			return diffInDays; // Return the difference in days
+		};
+
+		const parseDate = (dateString) => {
+			const date = new Date(dateString);
+			return isNaN(date.getTime()) ? null : date;
+		};
+
+		const parsePrice = (priceString) => {
+			// Check if the priceString is not undefined and is a string
+			if (typeof priceString === "string" || priceString instanceof String) {
+				return parseFloat(priceString.replace(/[^\d.-]/g, ""));
+			}
+			return 0; // Return 0 or some default value if the priceString is not a valid string
+		};
+
+		const parseDateToSaudiTimezone = (dateString) => {
+			// Parse the date using moment and convert it to the Asia/Riyadh timezone
+			return moment.tz(dateString, "Asia/Riyadh").format();
+		};
+
+		for (const item of data) {
+			const itemNumber = item["book number"]?.toString().trim();
+			if (!itemNumber) continue; // Skip if there's no book number
+
+			const daysOfResidence = calculateDaysOfResidence(
+				item["check-in"],
+				item["check-out"]
+			);
+
+			const price =
+				(Number(parsePrice(item.price)) +
+					Number(parsePrice(item.price)) * 0.1 +
+					Number(parsePrice(item["commission amount"]))) /
+				Number(item["rooms"]);
+
+			const chosenPrice =
+				daysOfResidence > 0 ? Number(price / daysOfResidence).toFixed(2) : 0;
+
+			const peoplePerRoom = item.persons
+				? item.persons
+				: item.people / item.rooms;
+			// Assuming item['rooms'] gives the number of rooms or you have a way to determine roomType from `item`
+			let roomType = ""; // Determine roomType based on `item` details
+			// Example logic to determine roomType
+			if (peoplePerRoom <= 1) {
+				roomType = "Single Room";
+			} else if (peoplePerRoom <= 2) {
+				roomType = "Double Room";
+			} else if (peoplePerRoom === 3) {
+				roomType = "Triple Room";
+			} else if (peoplePerRoom === 4) {
+				roomType = "Quad Room";
+			} else {
+				roomType = "Family Room";
+			} // Add more conditions as per your logic
+
+			// Initialize the pickedRoomsType array
+			const pickedRoomsType = [];
+
+			// Populate the pickedRoomsType array based on the room count
+			for (let i = 0; i < Number(item["rooms"]); i++) {
+				pickedRoomsType.push({
+					room_type: roomType,
+					chosenPrice: chosenPrice,
+					count: 1, // Each object represents 1 room
+				});
+			}
+
+			// ... Inside your transform logic
+			const totalAmount = Number(parsePrice(item.price || 0)).toFixed(2); // Provide a default string if Price is undefined
+
+			const commission = parsePrice(item["commission amount"] || 0); // Provide a default string if Commission Amount is undefined
+
+			// Use the parseDate function for date fields
+			const bookedAt = parseDateToSaudiTimezone(item["booked on"]);
+			const checkInDate = parseDate(item["check-in"]);
+			const checkOutDate = parseDate(item["check-out"]);
+
+			// Check for valid dates before proceeding
+			if (!bookedAt || !checkInDate || !checkOutDate) {
+				console.error(`Invalid date found in record: ${JSON.stringify(item)}`);
+				continue; // Skip this item if dates are invalid
+			}
+
+			// Prepare the document based on your mapping, including any necessary calculations
+			const document = {
+				confirmation_number: item["book number"] || "",
+				booking_source: "janat",
+				customer_details: {
+					name: item["guest name(s)"] || "", // Assuming 'Guest Name(s)' contains the full name
+				},
+				state: item.status ? item.status : "confirmed",
+				reservation_status: item.status.toLowerCase().includes("cancelled")
+					? "cancelled"
+					: item.status.toLowerCase().includes("show")
+					? "no_show"
+					: item.status,
+				total_guests: item.people || 1, // Total number of guests
+				total_rooms: item["rooms"], // The number of items in the group
+				booked_at: bookedAt,
+				checkin_date: checkInDate,
+				checkout_date: checkOutDate,
+				sub_total: totalAmount,
+				total_amount:
+					Number(totalAmount) + Number(commission) + Number(totalAmount) * 0.1,
+				currency: "SAR", // Adjust as needed
+				days_of_residence: daysOfResidence,
+				comment: item.remarks || "",
+				booking_comment: item.remarks || "",
+				payment: item["payment status"] ? item["payment status"] : "Not Paid",
+				pickedRoomsType,
+				commission: commission, // Ensure this field exists in your schema
+				hotelId: accountId,
+				belongsTo: userId,
+			};
+
+			const existingReservation = await Reservations.findOne({
+				confirmation_number: itemNumber,
+				booking_source: "booking.com",
+				hotelId: accountId,
+			});
+
+			if (existingReservation) {
+				await Reservations.updateOne(
+					{ confirmation_number: itemNumber },
+					{
+						$set: {
+							...document,
+							reservation_status:
+								document.reservation_status === "cancelled"
+									? "cancelled"
+									: document.reservation_status === "no_show"
+									? "no_show"
+									: existingReservation.reservation_status,
+						},
+					}
+				);
+			} else {
+				try {
+					await Reservations.create(document);
+				} catch (error) {
+					if (error.code === 11000) {
+						// Check for duplicate key error
+						// console.log(
+						// 	`Skipping duplicate document for confirmation_number: ${itemNumber}`
+						// );
+						continue; // Skip to the next item
+					} else {
+						throw error; // Rethrow if it's not a duplicate key error
+					}
+				}
+			}
+		}
+
+		res.status(200).json({
+			message: "Data has been updated and uploaded successfully.",
+		});
+	} catch (error) {
+		console.error("Error in bookingDataDump:", error);
+		res.status(500).json({ error: "Internal Server Error" });
+	}
+};
+
 // Reports
 
 exports.dateReport = async (req, res) => {

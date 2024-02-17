@@ -36,6 +36,7 @@ const {
 	sendPaymentLinkEmail,
 	reservationObjectSummary,
 	CheckedOutReservations,
+	janatDataDump,
 } = require("../controllers/reservations");
 
 router.post(
@@ -114,6 +115,12 @@ router.post(
 	"/reservations/booking-data-dump/:accountId/:belongsTo",
 	upload.single("file"),
 	bookingDataDump
+);
+
+router.post(
+	"/reservations/janat-data-dump/:accountId/:belongsTo",
+	upload.single("file"),
+	janatDataDump
 );
 
 router.get("/reservations2/:accountId", reservationsList2);
