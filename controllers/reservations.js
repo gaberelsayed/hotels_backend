@@ -1837,7 +1837,7 @@ exports.janatDataDump = async (req, res) => {
 
 			const price =
 				(Number(parsePrice(item.price)) +
-					Number(parsePrice(item.price)) * 0.1 +
+					// Number(parsePrice(item.price)) * 0.1 +
 					Number(parsePrice(item["commission amount"]))) /
 				Number(item["rooms"]);
 
@@ -1891,8 +1891,7 @@ exports.janatDataDump = async (req, res) => {
 			}
 
 			const commisionUpdate = Number(
-				(Number(totalAmount) + Number(commission) + Number(totalAmount) * 0.1) *
-					0.1
+				(Number(totalAmount) + Number(commission)) * 0.1
 			).toFixed(2);
 
 			// Prepare the document based on your mapping, including any necessary calculations
@@ -1914,8 +1913,7 @@ exports.janatDataDump = async (req, res) => {
 				checkin_date: checkInDate,
 				checkout_date: checkOutDate,
 				sub_total: totalAmount,
-				total_amount:
-					Number(totalAmount) + Number(commission) + Number(totalAmount) * 0.1,
+				total_amount: Number(totalAmount) + Number(commission),
 				currency: "SAR", // Adjust as needed
 				days_of_residence: daysOfResidence,
 				comment: item.remarks || "",
