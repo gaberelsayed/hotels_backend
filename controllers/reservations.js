@@ -1944,7 +1944,8 @@ exports.janatDataDump = async (req, res) => {
 									? "no_show"
 									: existingReservation.reservation_status,
 
-							commission: commisionUpdate,
+							commission: document.commisionUpdate,
+							total_amount: document.total_amount,
 						},
 					}
 				);
