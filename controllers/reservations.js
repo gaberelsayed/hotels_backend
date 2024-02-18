@@ -1863,16 +1863,17 @@ exports.janatDataDump = async (req, res) => {
 			} // Add more conditions as per your logic
 
 			// Initialize the pickedRoomsType array
-			const pickedRoomsType = [];
+			// const pickedRoomsType = [];
 
-			// Populate the pickedRoomsType array based on the room count
-			for (let i = 0; i < Number(item["rooms"]); i++) {
-				pickedRoomsType.push({
-					room_type: item["unit type"],
-					chosenPrice: chosenPrice,
-					count: 1, // Each object represents 1 room
-				});
-			}
+			// Split the unit type by comma to support multiple room types
+			const unitTypes = item["unit type"].split(",").map((type) => type.trim());
+
+			// Initialize the pickedRoomsType array and populate based on the split unit types
+			const pickedRoomsType = unitTypes.map((roomType) => ({
+				room_type: roomType, // Assign the room type from the split unit types
+				chosenPrice: chosenPrice,
+				count: 1, // Each object represents 1 room of this type
+			}));
 
 			// ... Inside your transform logic
 			const totalAmount = Number(parsePrice(item.price || 0)).toFixed(2); // Provide a default string if Price is undefined
