@@ -1878,7 +1878,6 @@ exports.janatDataDump = async (req, res) => {
 			const totalAmount = Number(parsePrice(item.price || 0)).toFixed(2); // Provide a default string if Price is undefined
 
 			const commission = parsePrice(item["commission amount"] || 0); // Provide a default string if Commission Amount is undefined
-
 			// Use the parseDate function for date fields
 			const bookedAt = parseDateToSaudiTimezone(item["booked on"]);
 			const checkInDate = parseDate(item["check-in"]);
@@ -1927,7 +1926,7 @@ exports.janatDataDump = async (req, res) => {
 
 			const existingReservation = await Reservations.findOne({
 				confirmation_number: itemNumber,
-				booking_source: "booking.com",
+				booking_source: "janat",
 				hotelId: accountId,
 			});
 
