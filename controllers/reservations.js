@@ -1868,7 +1868,7 @@ exports.janatDataDump = async (req, res) => {
 			// Populate the pickedRoomsType array based on the room count
 			for (let i = 0; i < Number(item["rooms"]); i++) {
 				pickedRoomsType.push({
-					room_type: roomType,
+					room_type: item["unit type"],
 					chosenPrice: chosenPrice,
 					count: 1, // Each object represents 1 room
 				});
