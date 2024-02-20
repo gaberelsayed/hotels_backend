@@ -1796,7 +1796,8 @@ exports.bookingDataDump = async (req, res) => {
 				state: item.status ? item.status : "confirmed",
 				reservation_status: item.status.toLowerCase().includes("cancelled")
 					? "cancelled"
-					: item.status.toLowerCase().includes("show")
+					: item.status.toLowerCase().includes("show") ||
+					  item.status.toLowerCase().includes("no_show")
 					? "no_show"
 					: item.status,
 				total_guests: item.people || 1, // Total number of guests
