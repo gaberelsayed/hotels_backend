@@ -424,7 +424,7 @@ function calculateDaysBetweenDates(startDate, endDate) {
 
 exports.getListOfReservations = async (req, res) => {
 	try {
-		const { page, records, filters, hotelId } = req.params;
+		const { page, records, filters, hotelId, date } = req.params;
 		const parsedPage = parseInt(page);
 		const parsedRecords = parseInt(records);
 
@@ -597,11 +597,105 @@ exports.totalRecordsReservations = async (req, res) => {
 	}
 };
 
+exports.totalCheckoutRecords = async (req, res) => {
+	try {
+		const { accountId, startDate, endDate } = req.params;
+
+		if (!ObjectId.isValid(accountId) || !startDate || !endDate) {
+			return res.status(400).send("Invalid parameters");
+		}
+
+		const formattedStartDate = new Date(`${startDate}T00:00:00+00:00`);
+		const formattedEndDate = new Date(`${endDate}T23:59:59+00:00`);
+
+		let dynamicFilter = {
+			hotelId: ObjectId(accountId),
+			reservation_status: {
+				$regex: "checked_out", // Use a regular expression to match the status text
+				$options: "i", // Case-insensitive matching
+			},
+			$or: [
+				{ checkout_date: { $gte: formattedStartDate, $lte: formattedEndDate } },
+				{
+					$and: [
+						{ checkout_date: { $gte: formattedStartDate } },
+						{ checkout_date: { $lte: formattedEndDate } },
+					],
+				},
+			],
+		};
+
+		const total = await Reservations.countDocuments(dynamicFilter);
+		res.json({ total });
+	} catch (error) {
+		console.error("Error fetching total checkout records:", error);
+		res.status(500).send("Server error");
+	}
+};
+
+exports.checkedoutReport = async (req, res) => {
+	try {
+		const { accountId, startDate, endDate, page, records } = req.params;
+		const parsedPage = parseInt(page);
+		const parsedRecords = parseInt(records);
+
+		if (
+			isNaN(parsedPage) ||
+			isNaN(parsedRecords) ||
+			!ObjectId.isValid(accountId) ||
+			!startDate ||
+			!endDate
+		) {
+			return res.status(400).send("Invalid parameters");
+		}
+
+		const formattedStartDate = new Date(`${startDate}T00:00:00+00:00`);
+		const formattedEndDate = new Date(`${endDate}T23:59:59+00:00`);
+
+		let dynamicFilter = {
+			hotelId: ObjectId(accountId),
+			reservation_status: {
+				$regex: "checked_out", // Use a regular expression to match the status text
+				$options: "i", // Case-insensitive matching
+			},
+			$or: [
+				{ checkout_date: { $gte: formattedStartDate, $lte: formattedEndDate } },
+				{
+					$and: [
+						{ checkout_date: { $gte: formattedStartDate } },
+						{ checkout_date: { $lte: formattedEndDate } },
+					],
+				},
+			],
+		};
+
+		const pipeline = [
+			{ $match: dynamicFilter },
+			{ $sort: { checkout_date: -1 } },
+			{ $skip: (parsedPage - 1) * parsedRecords },
+			{ $limit: parsedRecords },
+			{
+				$lookup: {
+					from: "rooms",
+					localField: "roomId",
+					foreignField: "_id",
+					as: "roomDetails",
+				},
+			},
+		];
+
+		const reservations = await Reservations.aggregate(pipeline);
+		res.json(reservations);
+	} catch (error) {
+		console.error(error);
+		res.status(500).send("Server error: " + error.message);
+	}
+};
+
 exports.reservationObjectSummary = async (req, res) => {
 	try {
 		const { accountId, date } = req.params;
-		const formattedDate = new Date(`${date}T00:00:00+03:00`); // Adjust timezone as necessary
-		const nextDay = new Date(formattedDate.getTime() + 86400000); // Add 24 hours to get the next day
+		const formattedDate = new Date(`${date}T00:00:00+03:00`); // Use Saudi Arabia time zone
 
 		const aggregation = await Reservations.aggregate([
 			{ $match: { hotelId: mongoose.Types.ObjectId(accountId) } },
@@ -609,27 +703,24 @@ exports.reservationObjectSummary = async (req, res) => {
 				$addFields: {
 					// Convert dates to start of day for comparison
 					bookedAtStartOfDay: {
-						$dateFromParts: {
-							year: { $year: "$booked_at" },
-							month: { $month: "$booked_at" },
-							day: { $dayOfMonth: "$booked_at" },
-							timezone: "Asia/Riyadh",
+						$dateTrunc: {
+							date: "$booked_at",
+							unit: "day",
+							timezone: "+03:00",
 						},
 					},
 					checkinStartOfDay: {
-						$dateFromParts: {
-							year: { $year: "$checkin_date" },
-							month: { $month: "$checkin_date" },
-							day: { $dayOfMonth: "$checkin_date" },
-							timezone: "Asia/Riyadh",
+						$dateTrunc: {
+							date: "$checkin_date",
+							unit: "day",
+							timezone: "+03:00",
 						},
 					},
 					checkoutStartOfDay: {
-						$dateFromParts: {
-							year: { $year: "$checkout_date" },
-							month: { $month: "$checkout_date" },
-							day: { $dayOfMonth: "$checkout_date" },
-							timezone: "Asia/Riyadh",
+						$dateTrunc: {
+							date: "$checkout_date",
+							unit: "day",
+							timezone: "+03:00",
 						},
 					},
 				},

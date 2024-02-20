@@ -37,6 +37,8 @@ const {
 	reservationObjectSummary,
 	CheckedOutReservations,
 	janatDataDump,
+	checkedoutReport,
+	totalCheckoutRecords,
 } = require("../controllers/reservations");
 
 router.post(
@@ -128,6 +130,15 @@ router.put("/reservation-update/:reservationId", updateReservation);
 router.post("/send-reservation-email", sendReservationEmail);
 router.post("/send-payment-link-email", sendPaymentLinkEmail);
 router.get("/reservations-summary/:accountId/:date", reservationObjectSummary);
+
+router.get(
+	"/reservations-summary-checkedout/:accountId/:startDate/:endDate",
+	totalCheckoutRecords
+);
+router.get(
+	"/reservations-checkedout/:page/:records/:accountId/:startDate/:endDate",
+	checkedoutReport
+);
 
 //Reports
 router.get("/dayoverday/:hotelId/:userMainId", dayoverday);
