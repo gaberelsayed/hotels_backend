@@ -94,6 +94,7 @@ const sendEmailWithPdf = async (reservationData) => {
 			{ email: "3yedhotel@gmail.com" },
 			{ email: "morazzakhamouda@gmail.com" },
 			{ email: "ahmed.abdelrazak@infinite-apps.com" },
+			{ email: "Marwa.abdelrazzak77@gmail.com" },
 		],
 		subject: `Janat Booking - Reservation Confirmation`,
 		html: htmlContent,
@@ -217,6 +218,7 @@ exports.sendPaymentLinkEmail = async (req, res) => {
 			{ email: "3yedhotel@gmail.com" },
 			{ email: "morazzakhamouda@gmail.com" },
 			{ email: "ahmed.abdelrazak@infinite-apps.com" },
+			{ email: "Marwa.abdelrazzak77@gmail.com" },
 		], // Your verified sender
 		subject: "Reservation Payment Link",
 		html: emailContent, // Use the generated HTML content
@@ -1014,6 +1016,7 @@ const sendEmailUpdate = async (reservationData, hotelName) => {
 			{ email: "3yedhotel@gmail.com" },
 			{ email: "morazzakhamouda@gmail.com" },
 			{ email: "ahmed.abdelrazak@infinite-apps.com" },
+			{ email: "Marwa.abdelrazzak77@gmail.com" },
 		],
 		subject: `Janat Booking - Reservation Update`,
 		html: htmlContent,
