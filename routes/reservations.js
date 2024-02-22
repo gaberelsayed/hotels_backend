@@ -39,6 +39,8 @@ const {
 	janatDataDump,
 	checkedoutReport,
 	totalCheckoutRecords,
+	totalGeneralReservationsRecords,
+	generalReservationsReport,
 } = require("../controllers/reservations");
 
 router.post(
@@ -138,6 +140,15 @@ router.get(
 router.get(
 	"/reservations-checkedout/:page/:records/:accountId/:channel/:startDate/:endDate",
 	checkedoutReport
+);
+
+router.get(
+	"/general-report-reservations/list/:accountId/:channel/:startDate/:endDate/:dateBy",
+	totalGeneralReservationsRecords
+);
+router.get(
+	"/reservations-general-report/:page/:records/:accountId/:channel/:startDate/:endDate/:dateBy",
+	generalReservationsReport
 );
 
 //Reports

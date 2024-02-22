@@ -749,6 +749,156 @@ exports.checkedoutReport = async (req, res) => {
 	}
 };
 
+exports.totalGeneralReservationsRecords = async (req, res) => {
+	try {
+		const { accountId, channel, startDate, endDate, dateBy } = req.params;
+
+		if (
+			!ObjectId.isValid(accountId) ||
+			!startDate ||
+			!endDate ||
+			!["checkin", "checkout", "bookat"].includes(dateBy)
+		) {
+			return res.status(400).send("Invalid parameters");
+		}
+
+		const formattedStartDate = new Date(`${startDate}T00:00:00+00:00`);
+		const formattedEndDate = new Date(`${endDate}T23:59:59+00:00`);
+
+		let dateField =
+			dateBy === "checkin"
+				? "checkin_date"
+				: dateBy === "checkout"
+				? "checkout_date"
+				: "booked_at";
+
+		let dynamicFilter = {
+			hotelId: ObjectId(accountId),
+			$or: [
+				{ [dateField]: { $gte: formattedStartDate, $lte: formattedEndDate } },
+				{
+					$and: [
+						{ [dateField]: { $gte: formattedStartDate } },
+						{ [dateField]: { $lte: formattedEndDate } },
+					],
+				},
+			],
+		};
+
+		if (channel && channel !== "undefined") {
+			dynamicFilter.booking_source = { $regex: new RegExp(channel, "i") };
+		}
+
+		const total = await Reservations.countDocuments(dynamicFilter);
+
+		const aggregation = await Reservations.aggregate([
+			{ $match: dynamicFilter },
+			{
+				$group: {
+					_id: null,
+					total_amount: { $sum: "$total_amount" },
+					commission: {
+						$sum: {
+							$cond: [
+								{ $eq: ["$payment", "expedia collect"] },
+								0,
+								{
+									$cond: [
+										{
+											$in: ["$booking_source", ["janat", "affiliate"]],
+										},
+										{ $multiply: ["$total_amount", 0.1] },
+										{ $subtract: ["$total_amount", "$sub_total"] },
+									],
+								},
+							],
+						},
+					},
+				},
+			},
+		]);
+
+		const result = {
+			total: total,
+			total_amount: aggregation.length > 0 ? aggregation[0].total_amount : 0,
+			commission: aggregation.length > 0 ? aggregation[0].commission : 0,
+		};
+
+		res.json(result);
+	} catch (error) {
+		console.error("Error fetching total general reservations records:", error);
+		res.status(500).send("Server error");
+	}
+};
+
+exports.generalReservationsReport = async (req, res) => {
+	try {
+		const { accountId, channel, startDate, endDate, page, records, dateBy } =
+			req.params;
+		const parsedPage = parseInt(page);
+		const parsedRecords = parseInt(records);
+
+		if (
+			isNaN(parsedPage) ||
+			isNaN(parsedRecords) ||
+			!ObjectId.isValid(accountId) ||
+			!startDate ||
+			!endDate ||
+			!["checkin", "checkout", "bookat"].includes(dateBy)
+		) {
+			return res.status(400).send("Invalid parameters");
+		}
+
+		const formattedStartDate = new Date(`${startDate}T00:00:00+00:00`);
+		const formattedEndDate = new Date(`${endDate}T23:59:59+00:00`);
+
+		let dateField =
+			dateBy === "checkin"
+				? "checkin_date"
+				: dateBy === "checkout"
+				? "checkout_date"
+				: "booked_at";
+
+		let dynamicFilter = {
+			hotelId: ObjectId(accountId),
+			$or: [
+				{ [dateField]: { $gte: formattedStartDate, $lte: formattedEndDate } },
+				{
+					$and: [
+						{ [dateField]: { $gte: formattedStartDate } },
+						{ [dateField]: { $lte: formattedEndDate } },
+					],
+				},
+			],
+		};
+
+		if (channel && channel !== "undefined") {
+			dynamicFilter.booking_source = { $regex: new RegExp(channel, "i") };
+		}
+
+		const pipeline = [
+			{ $match: dynamicFilter },
+			{ $sort: { [dateField]: -1 } },
+			{ $skip: (parsedPage - 1) * parsedRecords },
+			{ $limit: parsedRecords },
+			{
+				$lookup: {
+					from: "rooms",
+					localField: "roomId",
+					foreignField: "_id",
+					as: "roomDetails",
+				},
+			},
+		];
+
+		const reservations = await Reservations.aggregate(pipeline);
+		res.json(reservations);
+	} catch (error) {
+		console.error(error);
+		res.status(500).send("Server error: " + error.message);
+	}
+};
+
 exports.reservationObjectSummary = async (req, res) => {
 	try {
 		const { accountId, date } = req.params;
