@@ -601,7 +601,7 @@ exports.totalRecordsReservations = async (req, res) => {
 
 exports.totalCheckoutRecords = async (req, res) => {
 	try {
-		const { accountId, startDate, endDate } = req.params;
+		const { accountId, channel, startDate, endDate } = req.params;
 
 		if (!ObjectId.isValid(accountId) || !startDate || !endDate) {
 			return res.status(400).send("Invalid parameters");
@@ -627,8 +627,52 @@ exports.totalCheckoutRecords = async (req, res) => {
 			],
 		};
 
+		if (channel && channel !== "undefined") {
+			const channelFilter = {
+				booking_source: { $regex: new RegExp(channel, "i") },
+			};
+			const channelExists = await Reservations.findOne(channelFilter);
+			if (channelExists) {
+				dynamicFilter.booking_source = { $regex: new RegExp(channel, "i") };
+			}
+		}
+
 		const total = await Reservations.countDocuments(dynamicFilter);
-		res.json({ total });
+
+		const aggregation = await Reservations.aggregate([
+			{ $match: dynamicFilter },
+			{
+				$group: {
+					_id: null,
+					total_amount: { $sum: "$total_amount" },
+					commission: {
+						$sum: {
+							$cond: [
+								{ $eq: ["$payment", "expedia collect"] },
+								0,
+								{
+									$cond: [
+										{
+											$in: ["$booking_source", ["janat", "affiliate"]],
+										},
+										{ $multiply: ["$total_amount", 0.1] },
+										{ $subtract: ["$total_amount", "$sub_total"] },
+									],
+								},
+							],
+						},
+					},
+				},
+			},
+		]);
+
+		const result = {
+			total: total,
+			total_amount: aggregation.length > 0 ? aggregation[0].total_amount : 0,
+			commission: aggregation.length > 0 ? aggregation[0].commission : 0,
+		};
+
+		res.json(result);
 	} catch (error) {
 		console.error("Error fetching total checkout records:", error);
 		res.status(500).send("Server error");
@@ -637,7 +681,8 @@ exports.totalCheckoutRecords = async (req, res) => {
 
 exports.checkedoutReport = async (req, res) => {
 	try {
-		const { accountId, startDate, endDate, page, records } = req.params;
+		const { accountId, channel, startDate, endDate, page, records } =
+			req.params;
 		const parsedPage = parseInt(page);
 		const parsedRecords = parseInt(records);
 
@@ -670,6 +715,16 @@ exports.checkedoutReport = async (req, res) => {
 				},
 			],
 		};
+
+		if (channel && channel !== "undefined") {
+			const channelFilter = {
+				booking_source: { $regex: new RegExp(channel, "i") },
+			};
+			const channelExists = await Reservations.findOne(channelFilter);
+			if (channelExists) {
+				dynamicFilter.booking_source = { $regex: new RegExp(channel, "i") };
+			}
+		}
 
 		const pipeline = [
 			{ $match: dynamicFilter },

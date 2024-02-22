@@ -132,11 +132,11 @@ router.post("/send-payment-link-email", sendPaymentLinkEmail);
 router.get("/reservations-summary/:accountId/:date", reservationObjectSummary);
 
 router.get(
-	"/reservations-summary-checkedout/:accountId/:startDate/:endDate",
+	"/reservations-summary-checkedout/:accountId/:channel/:startDate/:endDate",
 	totalCheckoutRecords
 );
 router.get(
-	"/reservations-checkedout/:page/:records/:accountId/:startDate/:endDate",
+	"/reservations-checkedout/:page/:records/:accountId/:channel/:startDate/:endDate",
 	checkedoutReport
 );
 
