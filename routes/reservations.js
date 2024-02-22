@@ -143,11 +143,11 @@ router.get(
 );
 
 router.get(
-	"/general-report-reservations/list/:accountId/:channel/:startDate/:endDate/:dateBy",
+	"/general-report-reservations/list/:accountId/:channel/:startDate/:endDate/:dateBy/:noshow/:cancel/:inhouse",
 	totalGeneralReservationsRecords
 );
 router.get(
-	"/reservations-general-report/:page/:records/:accountId/:channel/:startDate/:endDate/:dateBy",
+	"/reservations-general-report/:page/:records/:accountId/:channel/:startDate/:endDate/:dateBy/:noshow/:cancel/:inhouse",
 	generalReservationsReport
 );
 

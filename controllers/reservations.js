@@ -751,7 +751,16 @@ exports.checkedoutReport = async (req, res) => {
 
 exports.totalGeneralReservationsRecords = async (req, res) => {
 	try {
-		const { accountId, channel, startDate, endDate, dateBy } = req.params;
+		const {
+			accountId,
+			channel,
+			startDate,
+			endDate,
+			dateBy,
+			noshow,
+			cancel,
+			inhouse,
+		} = req.params;
 
 		if (
 			!ObjectId.isValid(accountId) ||
@@ -787,6 +796,29 @@ exports.totalGeneralReservationsRecords = async (req, res) => {
 
 		if (channel && channel !== "undefined") {
 			dynamicFilter.booking_source = { $regex: new RegExp(channel, "i") };
+		}
+
+		if (noshow === "1") {
+			dynamicFilter.reservation_status = {
+				$ne: { $regex: "no_show", $options: "i" },
+			};
+		} else if (noshow === "2") {
+			dynamicFilter.reservation_status = { $regex: "no_show", $options: "i" };
+		}
+
+		if (cancel === "1") {
+			dynamicFilter.reservation_status = {
+				$not: { $regex: "cancelled|canceled", $options: "i" },
+			};
+		} else if (cancel === "2") {
+			dynamicFilter.reservation_status = {
+				$regex: "cancelled|canceled",
+				$options: "i",
+			};
+		}
+
+		if (inhouse === "1") {
+			dynamicFilter.reservation_status = { $regex: "inhouse", $options: "i" };
 		}
 
 		const total = await Reservations.countDocuments(dynamicFilter);
@@ -833,8 +865,18 @@ exports.totalGeneralReservationsRecords = async (req, res) => {
 
 exports.generalReservationsReport = async (req, res) => {
 	try {
-		const { accountId, channel, startDate, endDate, page, records, dateBy } =
-			req.params;
+		const {
+			accountId,
+			channel,
+			startDate,
+			endDate,
+			page,
+			records,
+			dateBy,
+			noshow,
+			cancel,
+			inhouse,
+		} = req.params;
 		const parsedPage = parseInt(page);
 		const parsedRecords = parseInt(records);
 
@@ -876,6 +918,29 @@ exports.generalReservationsReport = async (req, res) => {
 			dynamicFilter.booking_source = { $regex: new RegExp(channel, "i") };
 		}
 
+		if (noshow === "1") {
+			dynamicFilter.reservation_status = {
+				$ne: { $regex: "no_show", $options: "i" },
+			};
+		} else if (noshow === "2") {
+			dynamicFilter.reservation_status = { $regex: "no_show", $options: "i" };
+		}
+
+		if (cancel === "1") {
+			dynamicFilter.reservation_status = {
+				$not: { $regex: "cancelled|canceled", $options: "i" },
+			};
+		} else if (cancel === "2") {
+			dynamicFilter.reservation_status = {
+				$regex: "cancelled|canceled",
+				$options: "i",
+			};
+		}
+
+		if (inhouse === "1") {
+			dynamicFilter.reservation_status = { $regex: "inhouse", $options: "i" };
+		}
+
 		const pipeline = [
 			{ $match: dynamicFilter },
 			{ $sort: { [dateField]: -1 } },
@@ -887,6 +952,17 @@ exports.generalReservationsReport = async (req, res) => {
 					localField: "roomId",
 					foreignField: "_id",
 					as: "roomDetails",
+				},
+			},
+			{
+				$addFields: {
+					roomCount: {
+						$reduce: {
+							input: "$pickedRoomsType",
+							initialValue: 0,
+							in: { $add: ["$$value", "$$this.count"] },
+						},
+					},
 				},
 			},
 		];
