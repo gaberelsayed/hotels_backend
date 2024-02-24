@@ -760,6 +760,7 @@ exports.totalGeneralReservationsRecords = async (req, res) => {
 			noshow,
 			cancel,
 			inhouse,
+			checkedout,
 		} = req.params;
 
 		if (
@@ -821,6 +822,13 @@ exports.totalGeneralReservationsRecords = async (req, res) => {
 			dynamicFilter.reservation_status = { $regex: "inhouse", $options: "i" };
 		}
 
+		if (checkedout === "1") {
+			dynamicFilter.reservation_status = {
+				$regex: "checked_out",
+				$options: "i",
+			};
+		}
+
 		const total = await Reservations.countDocuments(dynamicFilter);
 
 		const aggregation = await Reservations.aggregate([
@@ -876,6 +884,7 @@ exports.generalReservationsReport = async (req, res) => {
 			noshow,
 			cancel,
 			inhouse,
+			checkedout,
 		} = req.params;
 		const parsedPage = parseInt(page);
 		const parsedRecords = parseInt(records);
@@ -939,6 +948,13 @@ exports.generalReservationsReport = async (req, res) => {
 
 		if (inhouse === "1") {
 			dynamicFilter.reservation_status = { $regex: "inhouse", $options: "i" };
+		}
+
+		if (checkedout === "1") {
+			dynamicFilter.reservation_status = {
+				$regex: "checked_out",
+				$options: "i",
+			};
 		}
 
 		const pipeline = [

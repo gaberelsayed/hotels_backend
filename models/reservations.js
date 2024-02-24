@@ -47,6 +47,12 @@ const reservationsSchema = new mongoose.Schema(
 				passport: "", //guest_national_id
 				passportExpiry: "",
 				nationality: "", //country
+				copyNumber: "",
+				hasCar: "no",
+				carLicensePlate: "",
+				carColor: "",
+				carModel: "",
+				carYear: "",
 			},
 		},
 		state: {
