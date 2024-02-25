@@ -784,15 +784,7 @@ exports.totalGeneralReservationsRecords = async (req, res) => {
 
 		let dynamicFilter = {
 			hotelId: ObjectId(accountId),
-			$or: [
-				{ [dateField]: { $gte: formattedStartDate, $lte: formattedEndDate } },
-				{
-					$and: [
-						{ [dateField]: { $gte: formattedStartDate } },
-						{ [dateField]: { $lte: formattedEndDate } },
-					],
-				},
-			],
+			[dateField]: { $gte: formattedStartDate, $lte: formattedEndDate },
 		};
 
 		if (channel && channel !== "undefined") {
@@ -800,33 +792,27 @@ exports.totalGeneralReservationsRecords = async (req, res) => {
 		}
 
 		if (noshow === "1") {
-			dynamicFilter.reservation_status = {
-				$ne: { $regex: "no_show", $options: "i" },
-			};
+			dynamicFilter.reservation_status = { $ne: "no_show" };
 		} else if (noshow === "2") {
-			dynamicFilter.reservation_status = { $regex: "no_show", $options: "i" };
+			dynamicFilter.reservation_status = "no_show";
 		}
 
 		if (cancel === "1") {
 			dynamicFilter.reservation_status = {
-				$not: { $regex: "cancelled|canceled", $options: "i" },
+				$nin: ["cancelled", "canceled", "no_show", "No_show"],
 			};
 		} else if (cancel === "2") {
 			dynamicFilter.reservation_status = {
-				$regex: "cancelled|canceled",
-				$options: "i",
+				$in: ["cancelled", "canceled", "no_show", "No_show"],
 			};
 		}
 
 		if (inhouse === "1") {
-			dynamicFilter.reservation_status = { $regex: "inhouse", $options: "i" };
+			dynamicFilter.reservation_status = "inhouse";
 		}
 
 		if (checkedout === "1") {
-			dynamicFilter.reservation_status = {
-				$regex: "checked_out",
-				$options: "i",
-			};
+			dynamicFilter.reservation_status = "checked_out";
 		}
 
 		const total = await Reservations.countDocuments(dynamicFilter);
@@ -912,15 +898,7 @@ exports.generalReservationsReport = async (req, res) => {
 
 		let dynamicFilter = {
 			hotelId: ObjectId(accountId),
-			$or: [
-				{ [dateField]: { $gte: formattedStartDate, $lte: formattedEndDate } },
-				{
-					$and: [
-						{ [dateField]: { $gte: formattedStartDate } },
-						{ [dateField]: { $lte: formattedEndDate } },
-					],
-				},
-			],
+			[dateField]: { $gte: formattedStartDate, $lte: formattedEndDate },
 		};
 
 		if (channel && channel !== "undefined") {
@@ -928,33 +906,27 @@ exports.generalReservationsReport = async (req, res) => {
 		}
 
 		if (noshow === "1") {
-			dynamicFilter.reservation_status = {
-				$ne: { $regex: "no_show", $options: "i" },
-			};
+			dynamicFilter.reservation_status = { $ne: "no_show" };
 		} else if (noshow === "2") {
-			dynamicFilter.reservation_status = { $regex: "no_show", $options: "i" };
+			dynamicFilter.reservation_status = "no_show";
 		}
 
 		if (cancel === "1") {
 			dynamicFilter.reservation_status = {
-				$not: { $regex: "cancelled|canceled", $options: "i" },
+				$nin: ["cancelled", "canceled", "no_show", "No_show"],
 			};
 		} else if (cancel === "2") {
 			dynamicFilter.reservation_status = {
-				$regex: "cancelled|canceled",
-				$options: "i",
+				$in: ["cancelled", "canceled", "no_show", "No_show"],
 			};
 		}
 
 		if (inhouse === "1") {
-			dynamicFilter.reservation_status = { $regex: "inhouse", $options: "i" };
+			dynamicFilter.reservation_status = "inhouse";
 		}
 
 		if (checkedout === "1") {
-			dynamicFilter.reservation_status = {
-				$regex: "checked_out",
-				$options: "i",
-			};
+			dynamicFilter.reservation_status = "checked_out";
 		}
 
 		const pipeline = [
