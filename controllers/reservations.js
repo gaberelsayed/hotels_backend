@@ -2392,13 +2392,14 @@ exports.dayoverday = async (req, res) => {
 
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
-		const past45Days = new Date(today);
-		past45Days.setDate(past45Days.getDate() - 15);
+		today.setDate(today.getDate() + 2); // Add 2 days to today
+		const past25Days = new Date(today);
+		past25Days.setDate(past25Days.getDate() - 25);
 
 		const matchCondition = {
 			hotelId: ObjectId(hotelId),
 			belongsTo: ObjectId(userMainId),
-			booked_at: { $gte: past45Days, $lte: today },
+			booked_at: { $gte: past25Days, $lte: today },
 		};
 
 		const aggregation = await Reservations.aggregate([
