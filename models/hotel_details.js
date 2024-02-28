@@ -11,7 +11,40 @@ const hotel_detailsSchema = new mongoose.Schema(
 			lowercase: true,
 			required: true,
 		},
+		hotelCountry: {
+			type: String,
+			trim: true,
+			lowercase: true,
+			default: "",
+		},
 
+		hotelState: {
+			type: String,
+			trim: true,
+			lowercase: true,
+			default: "",
+		},
+
+		hotelCity: {
+			type: String,
+			trim: true,
+			lowercase: true,
+			default: "",
+		},
+
+		phone: {
+			type: String,
+			trim: true,
+			lowercase: true,
+			default: "",
+		},
+
+		hotelAddress: {
+			type: String,
+			trim: true,
+			lowercase: true,
+			default: "",
+		},
 		hotelAmenities: {
 			type: Array,
 			trim: true,
@@ -136,6 +169,19 @@ const hotel_detailsSchema = new mongoose.Schema(
 		parkingLot: {
 			type: Boolean,
 			default: true,
+		},
+
+		subscribed: {
+			type: Boolean,
+			default: false,
+		},
+		subscriptionToken: {
+			type: String,
+			default: "unavailable",
+		},
+		subscriptionId: {
+			type: String,
+			default: "unavailable",
 		},
 
 		belongsTo: { type: ObjectId, ref: "User" },

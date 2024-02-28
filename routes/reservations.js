@@ -41,6 +41,7 @@ const {
 	totalCheckoutRecords,
 	totalGeneralReservationsRecords,
 	generalReservationsReport,
+	pendingPaymentReservations,
 } = require("../controllers/reservations");
 
 router.post(
@@ -140,6 +141,11 @@ router.get(
 router.get(
 	"/reservations-checkedout/:page/:records/:accountId/:channel/:startDate/:endDate",
 	checkedoutReport
+);
+
+router.get(
+	"/reservations-pending/:page/:records/:hotelId",
+	pendingPaymentReservations
 );
 
 router.get(

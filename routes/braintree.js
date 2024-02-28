@@ -16,11 +16,13 @@ const {
 	updateSubscriptionCard,
 	getSubscriptionData,
 	getStoredPaymentData,
+	processPaymentWithCommission,
 } = require("../controllers/braintree");
 
 router.get("/braintree/getToken", generateToken);
 
 router.post("/braintree/payment/:reservationId", processPayment);
+router.post("/braintree/commission-payment", processPaymentWithCommission);
 
 router.post("/braintree/subscription", processSubscription);
 
@@ -51,8 +53,6 @@ router.get(
 //to get subscription Payment data (used)
 router.get(
 	"/braintree/subscription-data/:userId/:subscriptionId",
-	requireSignin,
-	isAuth,
 	getSubscriptionData
 );
 

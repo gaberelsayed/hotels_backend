@@ -2,6 +2,7 @@
 
 const braintree = require("braintree");
 const Reservations = require("../models/reservations");
+const HotelDetails = require("../models/hotel_details");
 const fetch = require("node-fetch");
 const sgMail = require("@sendgrid/mail");
 require("dotenv").config();
@@ -199,6 +200,96 @@ exports.processPayment = (req, res) => {
 	);
 };
 
+exports.processPaymentWithCommission = (req, res) => {
+	let nonceFromTheClient = req.body.paymentMethodNonce;
+	let hotelName = req.body.hotelName;
+	let amountFromTheClient = parseFloat(req.body.amount).toFixed(2); // Ensure amount is in a valid format
+	let reservationIds = req.body.reservationIds; // Get reservationIds from request body
+
+	let merchantAccountId = "infiniteapps_instant"; // Merchant account ID for transactions in USD
+
+	gateway.transaction.sale(
+		{
+			amount: amountFromTheClient,
+			merchantAccountId: merchantAccountId, // Specify the merchant account ID
+			paymentMethodNonce: nonceFromTheClient,
+			options: {
+				submitForSettlement: true,
+			},
+		},
+		(error, result) => {
+			if (error) {
+				console.error("Braintree error:", error);
+				return res.status(500).json({
+					success: false,
+					error: "An error occurred processing your payment.",
+				});
+			}
+
+			if (result.success) {
+				const transactionDetails = {
+					transactionId: result.transaction.id,
+					amount: result.transaction.amount,
+					currency: result.transaction.currencyIsoCode,
+					status: result.transaction.status,
+					paymentMethodToken: result.transaction.creditCard
+						? result.transaction.creditCard.token
+						: undefined,
+					createdAt: result.transaction.createdAt,
+				};
+
+				// Update multiple reservations based on reservationIds
+				Reservations.updateMany(
+					{ _id: { $in: reservationIds } },
+					{
+						$set: {
+							payment_details: transactionDetails,
+							paid_amount: amountFromTheClient,
+							payment: "Paid",
+							financeStatus: "paid", // Set financeStatus to "paid"
+						},
+					},
+					{ new: true },
+					(err, updatedReservations) => {
+						if (err) {
+							console.error("Database update error:", err);
+							return res.status(500).json({
+								success: false,
+								error: "Failed to update reservations with payment details.",
+							});
+						}
+
+						res.json({
+							success: true, // Explicitly indicate success for clarity
+							message:
+								"Payment processed and reservations updated successfully.",
+							updatedReservationsCount: updatedReservations.nModified, // Number of modified reservations
+						});
+
+						// Optionally, send emails with PDFs for each updated reservation
+						// reservationIds.forEach((reservationId) => {
+						//     const updatedReservation = updatedReservations.find((res) => res._id.toString() === reservationId);
+						//     sendEmailWithPdf(updatedReservation, hotelName, amountFromTheClient, transactionDetails);
+						// });
+					}
+				);
+			} else {
+				console.error(
+					"Braintree transaction failed:",
+					JSON.stringify(result, null, 4)
+				);
+				const detailedErrors = extractBraintreeErrors(result.errors);
+				console.error("Detailed validation errors:", detailedErrors);
+				res.status(400).json({
+					success: false, // Explicitly indicate failure
+					error: "Payment was not successful.",
+					details: detailedErrors,
+				});
+			}
+		}
+	);
+};
+
 function extractBraintreeErrors(errors) {
 	const errorMessages = [];
 	if (errors && errors.deepErrors) {
@@ -220,6 +311,7 @@ exports.processSubscription = (req, res) => {
 
 	let nonceFromTheClient = req.body.paymentMethodNonce;
 	let amountFromTheClient = req.body.amount;
+	let hotelId = req.body.hotelId; // Assuming you pass the hotel ID in the request body
 
 	// charge
 	gateway.customer.create(
@@ -228,14 +320,14 @@ exports.processSubscription = (req, res) => {
 			email: req.body.email,
 		},
 		(err) => {
-			if (err) return res.status(500).send(error);
+			if (err) return res.status(500).send(err);
 			gateway.paymentMethod.create(
 				{
 					customerId: req.body.customerId,
 					paymentMethodNonce: nonceFromTheClient,
 				},
 				(err, result) => {
-					if (err) return res.status(500).send(error);
+					if (err) return res.status(500).send(err);
 					gateway.subscription.create(
 						{
 							paymentMethodToken: result.paymentMethod.token,
@@ -246,18 +338,29 @@ exports.processSubscription = (req, res) => {
 						},
 						(err, result) => {
 							console.log(err, "from processing the subscription");
-							if (err) return res.status(500).send(error);
-							//////
+							if (err) return res.status(500).send(err);
+
 							console.log(result, "result.subscription From Subscription");
-							// console.log(result, "result Only From Subscription");
 
-							//////
+							// Update HotelDetails document
+							HotelDetails.findByIdAndUpdate(
+								hotelId,
+								{
+									subscribed: true,
+									subscriptionToken: result.subscription.paymentMethodToken,
+									subscriptionId: result.subscription.id,
+								},
+								{ new: true },
+								(err, updatedHotel) => {
+									if (err) return res.status(500).send(err);
 
-							res.status(201).json({
-								result: "success",
-								subscription: result.subscription,
-							});
-							/////
+									res.status(201).json({
+										result: "success",
+										subscription: result.subscription,
+										updatedHotel: updatedHotel,
+									});
+								}
+							);
 						}
 					);
 				}
@@ -369,6 +472,9 @@ exports.gettingCurrencyConversion = (req, res) => {
 exports.updateSubscriptionCard = (req, res) => {
 	let paymentMethodToken = req.body.paymentMethodToken;
 	let subscriptionId = req.body.subscriptionId;
+
+	console.log(subscriptionId, "subscriptionIssssssssssssssd");
+
 	gateway.paymentMethod.update(
 		paymentMethodToken,
 		{

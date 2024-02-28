@@ -149,6 +149,14 @@ const reservationsSchema = new mongoose.Schema(
 			lowercase: true,
 			default: "",
 		},
+
+		financeStatus: {
+			type: String,
+			trim: true,
+			lowercase: true,
+			default: "not paid",
+		},
+
 		payment: {
 			type: String, //PaymentModel, Payment type,
 			trim: true,
