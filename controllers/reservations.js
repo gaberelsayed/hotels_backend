@@ -1579,11 +1579,13 @@ exports.agodaDataDump = async (req, res) => {
 			});
 
 			if (existingReservation) {
+				const { customer_details, ...documentWithoutCustomerDetails } =
+					document;
 				await Reservations.updateOne(
 					{ confirmation_number: itemNumber },
 					{
 						$set: {
-							...document,
+							...documentWithoutCustomerDetails,
 							reservation_status:
 								document.reservation_status === "cancelled"
 									? "cancelled"
@@ -1744,11 +1746,13 @@ exports.expediaDataDump = async (req, res) => {
 			);
 
 			if (existingReservation) {
+				const { customer_details, ...documentWithoutCustomerDetails } =
+					document;
 				await Reservations.updateOne(
 					{ confirmation_number: itemNumber },
 					{
 						$set: {
-							...document,
+							...documentWithoutCustomerDetails,
 							reservation_status:
 								document.reservation_status === "cancelled"
 									? "cancelled"
@@ -1906,11 +1910,13 @@ exports.airbnb = async (req, res) => {
 			});
 
 			if (existingReservation) {
+				const { customer_details, ...documentWithoutCustomerDetails } =
+					document;
 				await Reservations.updateOne(
 					{ confirmation_number: itemNumber },
 					{
 						$set: {
-							...document,
+							...documentWithoutCustomerDetails,
 							reservation_status:
 								document.reservation_status === "cancelled"
 									? "cancelled"
@@ -2101,11 +2107,13 @@ exports.bookingDataDump = async (req, res) => {
 			});
 
 			if (existingReservation) {
+				const { customer_details, ...documentWithoutCustomerDetails } =
+					document;
 				await Reservations.updateOne(
 					{ confirmation_number: itemNumber },
 					{
 						$set: {
-							...document,
+							...documentWithoutCustomerDetails,
 							reservation_status:
 								document.reservation_status === "cancelled"
 									? "cancelled"
@@ -2307,11 +2315,13 @@ exports.janatDataDump = async (req, res) => {
 			});
 
 			if (existingReservation) {
+				const { customer_details, ...documentWithoutCustomerDetails } =
+					document;
 				await Reservations.updateOne(
 					{ confirmation_number: itemNumber },
 					{
 						$set: {
-							...document,
+							...documentWithoutCustomerDetails,
 							reservation_status:
 								document.reservation_status === "cancelled"
 									? "cancelled"
