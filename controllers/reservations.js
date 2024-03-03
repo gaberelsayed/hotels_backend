@@ -2088,7 +2088,12 @@ exports.bookingDataDump = async (req, res) => {
 				checkout_date: checkOutDate,
 				sub_total: totalAmount,
 				total_amount:
-					Number(totalAmount) + Number(commission) + Number(totalAmount) * 0.1,
+					accountId === "65b640a1f33023933c22eba3"
+						? Number(totalAmount) + Number(commission)
+						: Number(totalAmount) +
+						  Number(commission) +
+						  Number(totalAmount) * 0.1,
+
 				currency: "SAR", // Adjust as needed
 				days_of_residence: daysOfResidence,
 				comment: item.remarks || "",
