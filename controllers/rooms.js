@@ -555,7 +555,7 @@ exports.roomsInventorySummary = async (req, res) => {
 	const belongsToId = mongoose.Types.ObjectId(belongsTo);
 	const account_Id = mongoose.Types.ObjectId(accountId);
 	const startDate = new Date();
-	const dateRange = generateDateRange(startDate, 50);
+	const dateRange = generateDateRange(startDate, 40);
 
 	try {
 		const totalRoomsByType = await getTotalRoomsByType(belongsToId, account_Id);
