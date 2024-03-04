@@ -1331,6 +1331,7 @@ exports.updateReservation = async (req, res) => {
 
 			// Check if the reservation status is "inhouse" or "InHouse" and roomId array is present and not empty
 			if (
+				updateData.reservation_status &&
 				(updateData.reservation_status.toLowerCase() === "inhouse" ||
 					updateData.reservation_status === "InHouse") &&
 				updateData.roomId &&
@@ -1575,12 +1576,16 @@ exports.agodaDataDump = async (req, res) => {
 			const existingReservation = await Reservations.findOne({
 				confirmation_number: itemNumber,
 				booking_source: "agoda",
-				hotelId: accountId,
 			});
 
 			if (existingReservation) {
-				const { customer_details, ...documentWithoutCustomerDetails } =
-					document;
+				const {
+					customer_details,
+					state,
+					hotelId,
+					belongsTo,
+					...documentWithoutCustomerDetails
+				} = document;
 				await Reservations.updateOne(
 					{ confirmation_number: itemNumber },
 					{
@@ -1740,14 +1745,18 @@ exports.expediaDataDump = async (req, res) => {
 				{
 					confirmation_number: itemNumber,
 					booking_source: "expedia",
-					hotelId: accountId,
 				},
 				{ upsert: true, new: true }
 			);
 
 			if (existingReservation) {
-				const { customer_details, ...documentWithoutCustomerDetails } =
-					document;
+				const {
+					customer_details,
+					state,
+					hotelId,
+					belongsTo,
+					...documentWithoutCustomerDetails
+				} = document;
 				await Reservations.updateOne(
 					{ confirmation_number: itemNumber },
 					{
@@ -1906,12 +1915,16 @@ exports.airbnb = async (req, res) => {
 			const existingReservation = await Reservations.findOne({
 				confirmation_number: itemNumber,
 				booking_source: "airbnb",
-				hotelId: accountId,
 			});
 
 			if (existingReservation) {
-				const { customer_details, ...documentWithoutCustomerDetails } =
-					document;
+				const {
+					customer_details,
+					state,
+					hotelId,
+					belongsTo,
+					...documentWithoutCustomerDetails
+				} = document;
 				await Reservations.updateOne(
 					{ confirmation_number: itemNumber },
 					{
@@ -2108,12 +2121,16 @@ exports.bookingDataDump = async (req, res) => {
 			const existingReservation = await Reservations.findOne({
 				confirmation_number: itemNumber,
 				booking_source: "booking.com",
-				hotelId: accountId,
 			});
 
 			if (existingReservation) {
-				const { customer_details, ...documentWithoutCustomerDetails } =
-					document;
+				const {
+					customer_details,
+					state,
+					hotelId,
+					belongsTo,
+					...documentWithoutCustomerDetails
+				} = document;
 				await Reservations.updateOne(
 					{ confirmation_number: itemNumber },
 					{
@@ -2316,12 +2333,16 @@ exports.janatDataDump = async (req, res) => {
 			const existingReservation = await Reservations.findOne({
 				confirmation_number: itemNumber,
 				booking_source: "janat",
-				hotelId: accountId,
 			});
 
 			if (existingReservation) {
-				const { customer_details, ...documentWithoutCustomerDetails } =
-					document;
+				const {
+					customer_details,
+					state,
+					hotelId,
+					belongsTo,
+					...documentWithoutCustomerDetails
+				} = document;
 				await Reservations.updateOne(
 					{ confirmation_number: itemNumber },
 					{
