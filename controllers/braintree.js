@@ -112,6 +112,7 @@ exports.processPayment = (req, res) => {
 	let nonceFromTheClient = req.body.paymentMethodNonce;
 	let hotelName = req.body.hotelName;
 	let amountFromTheClient = parseFloat(req.body.amount).toFixed(2); // Ensure amount is in a valid format
+	let amountFromTheClientInSAR = parseFloat(req.body.amountInSAR).toFixed(2); // Ensure amount is in a valid format
 	let reservationId = req.params.reservationId; // Get reservationId from request parameters
 
 	let merchantAccountId = "infiniteapps_instant"; // Merchant account ID for transactions in USD
@@ -151,7 +152,7 @@ exports.processPayment = (req, res) => {
 					{
 						$set: {
 							payment_details: transactionDetails,
-							paid_amount: amountFromTheClient,
+							paid_amount: amountFromTheClientInSAR,
 							payment: "Paid (Affiliate)",
 						},
 					},
@@ -178,7 +179,7 @@ exports.processPayment = (req, res) => {
 						sendEmailWithPdf(
 							updatedReservation,
 							hotelName,
-							amountFromTheClient,
+							amountFromTheClientInSAR,
 							transactionDetails
 						);
 					}

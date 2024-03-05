@@ -2802,8 +2802,59 @@ exports.pendingPaymentReservations = async (req, res) => {
 		let dynamicFilter = {
 			hotelId: ObjectId(hotelId),
 			booking_source: { $in: ["janat", "affiliate", "manual"] },
-			reservation_status: { $in: ["inhouse", "checked_out"] },
+			reservation_status: { $in: ["checked_out"] },
 			financeStatus: { $in: ["not moved", "not paid", "", undefined] },
+		};
+
+		// Calculate dates for the filter: 2 days ago to 2 days in advance
+		const today = new Date();
+		const twoDaysAgo = new Date(today);
+		twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+		const twoDaysInAdvance = new Date(today);
+		twoDaysInAdvance.setDate(twoDaysInAdvance.getDate() + 2);
+
+		const pipeline = [
+			{ $match: dynamicFilter },
+			{ $sort: { booked_at: -1 } },
+			{ $skip: (parsedPage - 1) * parsedRecords },
+			{ $limit: parsedRecords },
+			{
+				$lookup: {
+					from: "rooms",
+					localField: "roomId",
+					foreignField: "_id",
+					as: "roomDetails",
+				},
+			},
+		];
+
+		const reservations = await Reservations.aggregate(pipeline);
+		res.json(reservations);
+	} catch (error) {
+		console.error(error);
+		res.status(500).send("Server error: " + error.message);
+	}
+};
+
+exports.commissionPaidReservations = async (req, res) => {
+	try {
+		const { page, records, hotelId } = req.params;
+		const parsedPage = parseInt(page);
+		const parsedRecords = parseInt(records);
+
+		if (
+			isNaN(parsedPage) ||
+			isNaN(parsedRecords) ||
+			!ObjectId.isValid(hotelId)
+		) {
+			return res.status(400).send("Invalid parameters");
+		}
+
+		let dynamicFilter = {
+			hotelId: ObjectId(hotelId),
+			booking_source: { $in: ["janat", "affiliate", "manual"] },
+			reservation_status: { $in: ["checked_out"] },
+			financeStatus: { $in: ["paid"] },
 		};
 
 		// Calculate dates for the filter: 2 days ago to 2 days in advance

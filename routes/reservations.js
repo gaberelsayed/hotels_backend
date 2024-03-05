@@ -42,6 +42,7 @@ const {
 	totalGeneralReservationsRecords,
 	generalReservationsReport,
 	pendingPaymentReservations,
+	commissionPaidReservations,
 } = require("../controllers/reservations");
 
 router.post(
@@ -146,6 +147,11 @@ router.get(
 router.get(
 	"/reservations-pending/:page/:records/:hotelId",
 	pendingPaymentReservations
+);
+
+router.get(
+	"/reservations-paid-commission/:page/:records/:hotelId",
+	commissionPaidReservations
 );
 
 router.get(
