@@ -43,6 +43,7 @@ const {
 	generalReservationsReport,
 	pendingPaymentReservations,
 	commissionPaidReservations,
+	ownerReport,
 } = require("../controllers/reservations");
 
 router.post(
@@ -168,6 +169,7 @@ router.get("/dayoverday/:hotelId/:userMainId", dayoverday);
 router.get("/monthovermonth/:hotelId/:userMainId", monthovermonth);
 router.get("/bookingsource/:hotelId/:userMainId", bookingSource);
 router.get("/reservationstatus/:hotelId/:userMainId", reservationstatus);
+router.get("/owner-aggregation/:month/:hotelIds", ownerReport);
 
 router.param("userId", userById);
 router.param("reservationId", reservationById);

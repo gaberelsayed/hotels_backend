@@ -1,4 +1,5 @@
 const Reservations = require("../models/reservations");
+const HotelDetails = require("../models/hotel_details");
 const mongoose = require("mongoose");
 const ObjectId = mongoose.Types.ObjectId;
 const fetch = require("node-fetch");
@@ -2505,6 +2506,10 @@ exports.monthovermonth = async (req, res) => {
 			belongsTo: ObjectId(userMainId),
 		};
 
+		// Get the current month and year
+		const currentMonth = new Date().getMonth() + 1; // +1 because getMonth() returns 0-11
+		const currentYear = new Date().getFullYear();
+
 		const aggregation = await Reservations.aggregate([
 			{ $match: matchCondition },
 			{
@@ -2534,6 +2539,8 @@ exports.monthovermonth = async (req, res) => {
 							{ $toString: { $year: "$booked_at" } },
 						],
 					},
+					bookedMonth: { $month: "$booked_at" },
+					bookedYear: { $year: "$booked_at" },
 					isCancelled: {
 						$regexMatch: {
 							input: "$reservation_status",
@@ -2565,6 +2572,19 @@ exports.monthovermonth = async (req, res) => {
 				},
 			},
 			{
+				$match: {
+					$or: [
+						{ bookedYear: { $lt: currentYear } },
+						{
+							$and: [
+								{ bookedYear: currentYear },
+								{ bookedMonth: { $lte: currentMonth } },
+							],
+						},
+					],
+				},
+			},
+			{
 				$group: {
 					_id: "$monthYear",
 					totalReservations: { $sum: 1 },
@@ -2579,7 +2599,12 @@ exports.monthovermonth = async (req, res) => {
 					},
 				},
 			},
-			{ $sort: { _id: 1 } },
+			{
+				$sort: {
+					"_id.year": 1,
+				},
+			},
+			{ $limit: 12 }, // Limit to the latest 12 months
 		]);
 
 		res.json(aggregation);
@@ -2881,6 +2906,122 @@ exports.commissionPaidReservations = async (req, res) => {
 
 		const reservations = await Reservations.aggregate(pipeline);
 		res.json(reservations);
+	} catch (error) {
+		console.error(error);
+		res.status(500).send("Server error: " + error.message);
+	}
+};
+
+const monthNames = [
+	"January",
+	"February",
+	"March",
+	"April",
+	"May",
+	"June",
+	"July",
+	"August",
+	"September",
+	"October",
+	"November",
+	"December",
+];
+
+exports.ownerReport = async (req, res) => {
+	try {
+		const { month, hotelIds } = req.params;
+		const monthNumber = monthNames.indexOf(month) + 1; // Convert month name to month number
+		if (monthNumber === 0) {
+			throw new Error("Invalid month name");
+		}
+		const year = new Date().getFullYear();
+		const startDate = new Date(Date.UTC(year, monthNumber - 1, 1));
+		const endDate = new Date(Date.UTC(year, monthNumber, 0));
+
+		const hotelIdsArray = hotelIds
+			.split("-")
+			.map((id) => mongoose.Types.ObjectId(id));
+
+		const aggregateResult = await Reservations.aggregate([
+			{
+				$match: {
+					hotelId: { $in: hotelIdsArray },
+					checkout_date: { $gte: startDate, $lte: endDate },
+					reservation_status: { $nin: ["cancelled", "canceled", "no_show"] },
+				},
+			},
+			{
+				$lookup: {
+					from: "hoteldetails", // Ensure this is the correct collection name
+					localField: "hotelId",
+					foreignField: "_id",
+					as: "hotelInfo",
+				},
+			},
+			{ $unwind: { path: "$hotelInfo", preserveNullAndEmptyArrays: true } },
+			{
+				$group: {
+					_id: {
+						hotelName: "$hotelInfo.hotelName",
+						booking_source: "$booking_source",
+					},
+					totalBookings: { $sum: 1 },
+					total_amount: { $sum: "$total_amount" },
+					commission: { $sum: "$commission" },
+					totalBookingsHoused: {
+						$sum: {
+							$cond: [
+								{
+									$regexMatch: {
+										input: "$reservation_status",
+										regex: /checked_out/,
+									},
+								},
+								1,
+								0,
+							],
+						},
+					},
+					total_amountHoused: {
+						$sum: {
+							$cond: [
+								{
+									$regexMatch: {
+										input: "$reservation_status",
+										regex: /checked_out/,
+									},
+								},
+								"$total_amount",
+								0,
+							],
+						},
+					},
+					totalNights: {
+						$sum: {
+							$subtract: [
+								{ $dayOfYear: "$checkout_date" },
+								{ $dayOfYear: "$checkin_date" },
+							],
+						},
+					},
+				},
+			},
+			{
+				$project: {
+					hotelName: "$_id.hotelName",
+					booking_source: "$_id.booking_source",
+					totalBookings: 1,
+					total_amount: 1,
+					commission: 1,
+					totalBookingsHoused: 1,
+					total_amountHoused: 1,
+					totalNights: 1, // Include the totalNights in the projection
+					_id: 0,
+				},
+			},
+		]);
+
+		res.json(aggregateResult);
 	} catch (error) {
 		console.error(error);
 		res.status(500).send("Server error: " + error.message);

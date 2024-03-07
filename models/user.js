@@ -28,23 +28,27 @@ const userSchema = new mongoose.Schema(
 			type: String,
 			trim: true,
 			lowercase: true,
+			default: "",
 		},
 		hotelCountry: {
 			type: String,
 			trim: true,
 			lowercase: true,
+			default: "",
 		},
 
 		hotelState: {
 			type: String,
 			trim: true,
 			lowercase: true,
+			default: "",
 		},
 
 		hotelCity: {
 			type: String,
 			trim: true,
 			lowercase: true,
+			default: "",
 		},
 
 		phone: {
@@ -57,6 +61,7 @@ const userSchema = new mongoose.Schema(
 			type: String,
 			trim: true,
 			lowercase: true,
+			default: "",
 		},
 
 		salt: String,
@@ -111,6 +116,8 @@ const userSchema = new mongoose.Schema(
 			type: String,
 			default: "unavailable",
 		},
+
+		hotelIdsOwner: [{ type: ObjectId, ref: "HotelDetails", default: null }],
 	},
 	{ timestamps: true }
 );
