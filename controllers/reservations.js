@@ -2027,10 +2027,14 @@ exports.bookingDataDump = async (req, res) => {
 			);
 
 			const price =
-				(Number(parsePrice(item.price)) +
-					Number(parsePrice(item.price)) * 0.1 +
-					Number(parsePrice(item["commission amount"]))) /
-				Number(item["rooms"]);
+				accountId === "65b640a1f33023933c22eba3"
+					? (Number(parsePrice(item.price)) +
+							Number(parsePrice(item["commission amount"]))) /
+					  Number(item["rooms"])
+					: (Number(parsePrice(item.price)) +
+							Number(parsePrice(item.price)) * 0.1 +
+							Number(parsePrice(item["commission amount"]))) /
+					  Number(item["rooms"]);
 
 			const chosenPrice =
 				daysOfResidence > 0 ? Number(price / daysOfResidence).toFixed(2) : 0;
