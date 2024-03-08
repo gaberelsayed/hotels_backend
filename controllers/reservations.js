@@ -1563,7 +1563,9 @@ exports.agodaDataDump = async (req, res) => {
 				checkout_date: checkOutDateSaudi,
 				days_of_residence: daysOfResidence,
 				comment: item.Special_Request || "",
-				commision: item.Commission, // Note the misspelling of 'commission' here
+				commision: Number(
+					Number(totalAmount) - Number(item.Total_inclusive_rate)
+				).toFixed(2), // Note the misspelling of 'commission' here
 				payment: item.PaymentModel.toLowerCase(),
 				pickedRoomsType,
 				hotelId: accountId,
