@@ -44,6 +44,7 @@ const {
 	pendingPaymentReservations,
 	commissionPaidReservations,
 	ownerReport,
+	ownerReservationToDate,
 } = require("../controllers/reservations");
 
 router.post(
@@ -170,6 +171,7 @@ router.get("/monthovermonth/:hotelId/:userMainId", monthovermonth);
 router.get("/bookingsource/:hotelId/:userMainId", bookingSource);
 router.get("/reservationstatus/:hotelId/:userMainId", reservationstatus);
 router.get("/owner-aggregation/:month/:hotelIds", ownerReport);
+router.get("/owner-reservation-date/:hotelIds/:date", ownerReservationToDate);
 
 router.param("userId", userById);
 router.param("reservationId", reservationById);

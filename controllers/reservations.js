@@ -3031,3 +3031,31 @@ exports.ownerReport = async (req, res) => {
 		res.status(500).send("Server error: " + error.message);
 	}
 };
+
+exports.ownerReservationToDate = async (req, res) => {
+	try {
+		const { hotelIds, date } = req.params;
+
+		// Convert hotelIds string to array of ObjectIds
+		const hotelIdsArray = hotelIds
+			.split("-")
+			.map((id) => mongoose.Types.ObjectId(id));
+
+		// Convert date string to Date object and adjust for Saudi Arabia timezone
+		const checkinDate = new Date(date + "T00:00:00+03:00"); // Assuming 'date' is in 'yyyy-mm-dd' format
+
+		const reservations = await Reservations.find({
+			hotelId: { $in: hotelIdsArray },
+			checkin_date: {
+				$gte: checkinDate,
+				$lt: new Date(checkinDate.getTime() + 86400000), // Add 24 hours to get the end of the day
+			},
+			reservation_status: { $nin: ["cancelled", "canceled", "no_show"] },
+		}).populate("hotelId", "hotelName"); // Assuming you want to include the hotel name in the response
+
+		res.json(reservations);
+	} catch (error) {
+		console.error(error);
+		res.status(500).send("Server error: " + error.message);
+	}
+};
