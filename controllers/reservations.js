@@ -2027,12 +2027,12 @@ exports.bookingDataDump = async (req, res) => {
 			);
 
 			const price =
-				accountId === "65b640a1f33023933c22eba3"
+				accountId === "658c7c02f848bc6562f5c5cc"
 					? (Number(parsePrice(item.price)) +
+							Number(parsePrice(item.price)) * 0.1 +
 							Number(parsePrice(item["commission amount"]))) /
 					  Number(item["rooms"])
 					: (Number(parsePrice(item.price)) +
-							Number(parsePrice(item.price)) * 0.1 +
 							Number(parsePrice(item["commission amount"]))) /
 					  Number(item["rooms"]);
 
@@ -2106,11 +2106,11 @@ exports.bookingDataDump = async (req, res) => {
 				checkout_date: checkOutDate,
 				sub_total: totalAmount,
 				total_amount:
-					accountId === "65b640a1f33023933c22eba3"
-						? Number(totalAmount) + Number(commission)
-						: Number(totalAmount) +
+					accountId === "658c7c02f848bc6562f5c5cc"
+						? Number(totalAmount) +
 						  Number(commission) +
-						  Number(totalAmount) * 0.1,
+						  Number(totalAmount) * 0.1
+						: Number(totalAmount) + Number(commission),
 
 				currency: "SAR", // Adjust as needed
 				days_of_residence: daysOfResidence,
