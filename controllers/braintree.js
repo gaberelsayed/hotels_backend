@@ -201,6 +201,99 @@ exports.processPayment = (req, res) => {
 	);
 };
 
+exports.processPayment_SAR = (req, res) => {
+	let nonceFromTheClient = req.body.paymentMethodNonce;
+	let hotelName = req.body.hotelName;
+	let amountFromTheClient = parseFloat(req.body.amount).toFixed(2); // Ensure amount is in a valid format
+	let amountFromTheClientInSAR = parseFloat(req.body.amountInSAR).toFixed(2); // Ensure amount is in a valid format
+	let reservationId = req.params.reservationId; // Get reservationId from request parameters
+
+	let merchantAccountId = "infiniteapps_SAR"; // Merchant account ID for transactions in USD
+
+	gateway.transaction.sale(
+		{
+			amount: amountFromTheClient,
+			merchantAccountId: merchantAccountId, // Specify the merchant account ID
+			paymentMethodNonce: nonceFromTheClient,
+			options: {
+				submitForSettlement: true,
+			},
+		},
+		(error, result) => {
+			if (error) {
+				console.error("Braintree error:", error);
+				return res.status(500).json({
+					success: false,
+					error: "An error occurred processing your payment.",
+				});
+			}
+
+			if (result.success) {
+				const transactionDetails = {
+					transactionId: result.transaction.id,
+					amount: result.transaction.amount,
+					currency: result.transaction.currencyIsoCode,
+					status: result.transaction.status,
+					paymentMethodToken: result.transaction.creditCard
+						? result.transaction.creditCard.token
+						: undefined,
+					createdAt: result.transaction.createdAt,
+				};
+
+				Reservations.findByIdAndUpdate(
+					reservationId,
+					{
+						$set: {
+							payment_details: transactionDetails,
+							paid_amount: amountFromTheClientInSAR,
+							payment: "Collected",
+						},
+					},
+					{ new: true },
+					(err, updatedReservation) => {
+						if (err) {
+							console.error("Database update error:", err);
+							return res.status(500).json({
+								success: false,
+								error: "Failed to update reservation with payment details.",
+							});
+						}
+
+						res.json({
+							success: true, // Explicitly indicate success for clarity
+							message:
+								"Payment processed and reservation updated successfully.",
+							updatedReservation: {
+								id: updatedReservation._id,
+								paymentDetails: transactionDetails,
+							},
+						});
+
+						sendEmailWithPdf(
+							updatedReservation,
+							hotelName,
+							amountFromTheClientInSAR,
+							transactionDetails
+						);
+					}
+				);
+			} else {
+				console.error(
+					"Braintree transaction failed:",
+					JSON.stringify(result, null, 4)
+				);
+				const detailedErrors = extractBraintreeErrors(result.errors);
+				console.error("Detailed validation errors:", detailedErrors);
+				res.status(400).json({
+					success: false, // Explicitly indicate failure
+					error: "Payment was not successful.",
+					details: detailedErrors,
+				});
+			}
+		}
+	);
+};
+
 exports.processPaymentWithCommission = (req, res) => {
 	let nonceFromTheClient = req.body.paymentMethodNonce;
 	let hotelName = req.body.hotelName;

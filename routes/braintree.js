@@ -22,6 +22,7 @@ const {
 router.get("/braintree/getToken", generateToken);
 
 router.post("/braintree/payment/:reservationId", processPayment);
+router.post("/braintree/sar-payment/:reservationId", processPayment);
 router.post("/braintree/commission-payment", processPaymentWithCommission);
 
 router.post("/braintree/subscription", processSubscription);
