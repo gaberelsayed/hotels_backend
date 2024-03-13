@@ -17,12 +17,13 @@ const {
 	getSubscriptionData,
 	getStoredPaymentData,
 	processPaymentWithCommission,
+	processPayment_SAR,
 } = require("../controllers/braintree");
 
 router.get("/braintree/getToken", generateToken);
 
 router.post("/braintree/payment/:reservationId", processPayment);
-router.post("/braintree/sar-payment/:reservationId", processPayment);
+router.post("/braintree/sar-payment/:reservationId", processPayment_SAR);
 router.post("/braintree/commission-payment", processPaymentWithCommission);
 
 router.post("/braintree/subscription", processSubscription);
