@@ -246,7 +246,7 @@ exports.processPayment_SAR = (req, res) => {
 						$set: {
 							payment_details: transactionDetails,
 							paid_amount: amountFromTheClientInSAR,
-							payment: "Collected",
+							payment: "collected",
 						},
 					},
 					{ new: true },
