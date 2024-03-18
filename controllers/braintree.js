@@ -207,9 +207,11 @@ exports.processPayment_SAR = (req, res) => {
 	let amountFromTheClient = parseFloat(req.body.amount).toFixed(2); // Ensure amount is in a valid format
 	let amountFromTheClientInSAR = parseFloat(req.body.amountInSAR).toFixed(2); // Ensure amount is in a valid format
 	let reservationId = req.params.reservationId; // Get reservationId from request parameters
+	let chosenCurrency = req.body.chosenCurrency;
+	let merchantAccountId =
+		chosenCurrency === "SAR" ? "infiniteapps_SAR" : "infiniteapps_instant"; // Merchant account ID for transactions in USD
 
-	let merchantAccountId = "infiniteapps_SAR"; // Merchant account ID for transactions in USD
-
+	console.log(chosenCurrency, "chosenCurrencychosenCurrencychosenCurrency");
 	gateway.transaction.sale(
 		{
 			amount: amountFromTheClient,
