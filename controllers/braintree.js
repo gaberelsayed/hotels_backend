@@ -212,6 +212,8 @@ exports.processPayment_SAR = (req, res) => {
 		chosenCurrency === "SAR" ? "infiniteapps_SAR" : "infiniteapps_instant"; // Merchant account ID for transactions in USD
 
 	console.log(chosenCurrency, "chosenCurrencychosenCurrencychosenCurrency");
+	console.log(amountFromTheClient, "amountFromTheClientamountFromTheClient");
+
 	gateway.transaction.sale(
 		{
 			amount: amountFromTheClient,
