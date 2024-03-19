@@ -1650,6 +1650,7 @@ exports.agodaDataDump = async (req, res) => {
 					customer_details,
 					state,
 					hotelId,
+					payment,
 					belongsTo,
 					...documentWithoutCustomerDetails
 				} = document;
@@ -1821,6 +1822,7 @@ exports.expediaDataDump = async (req, res) => {
 					customer_details,
 					state,
 					hotelId,
+					payment,
 					belongsTo,
 					...documentWithoutCustomerDetails
 				} = document;
@@ -1989,6 +1991,7 @@ exports.airbnb = async (req, res) => {
 					customer_details,
 					state,
 					hotelId,
+					payment,
 					belongsTo,
 					...documentWithoutCustomerDetails
 				} = document;
@@ -2199,6 +2202,7 @@ exports.bookingDataDump = async (req, res) => {
 					customer_details,
 					state,
 					hotelId,
+					payment,
 					belongsTo,
 					...documentWithoutCustomerDetails
 				} = document;
@@ -2411,6 +2415,7 @@ exports.janatDataDump = async (req, res) => {
 					customer_details,
 					state,
 					hotelId,
+					payment,
 					belongsTo,
 					...documentWithoutCustomerDetails
 				} = document;
