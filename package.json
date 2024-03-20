@@ -13,6 +13,7 @@
 	"license": "ISC",
 	"dependencies": {
 		"@paypal/checkout-server-sdk": "^1.0.3",
+		"@paypal/payouts-sdk": "^1.1.1",
 		"@sendgrid/mail": "^7.6.0",
 		"api": "^5.0.5",
 		"braintree": "^3.8.0",

@@ -1,11 +1,8 @@
 const express = require("express");
+const { payPalMerchantCreation } = require("../controllers/paypal");
 const router = express.Router();
-const paypalController = require("../controllers/paypal");
 
 // Route to process a payment
-router.post(
-	"/process-payment-via-paypal/:reservationId",
-	paypalController.processPayment_SAR
-);
+router.post("/create-a-vendor-paypal", payPalMerchantCreation);
 
 module.exports = router;

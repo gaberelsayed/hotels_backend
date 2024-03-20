@@ -1,6 +1,4 @@
-const paypal = require("@paypal/checkout-server-sdk");
-const Reservations = require("../models/reservations");
-require("dotenv").config();
+const paypal = require("@paypal/payouts-sdk");
 
 // Helper function to create an environment
 function environment() {
@@ -15,63 +13,44 @@ function client() {
 	return new paypal.core.PayPalHttpClient(environment());
 }
 
-// Function to handle payment processing
-exports.processPayment_SAR = async (req, res) => {
-	let amountFromTheClientInSAR = parseFloat(req.body.amount).toFixed(2);
-	let reservationId = req.params.reservationId;
+// Function to handle PayPal merchant creation and payouts
+exports.payPalMerchantCreation = async (req, res) => {
+	let payoutEmail = req.body.payoutEmail; // The vendor's PayPal email
+	let payoutAmount = req.body.payoutAmount; // The amount to payout
 
-	// Construct a request object and set desired parameters
-	let request = new paypal.orders.OrdersCreateRequest();
-	request.prefer("return=representation");
+	let request = new paypal.payouts.PayoutsPostRequest();
 	request.requestBody({
-		intent: "CAPTURE",
-		purchase_units: [
+		sender_batch_header: {
+			sender_batch_id: "Payouts_" + Math.random().toString(36).substring(7),
+			email_subject: "You have received a payout!",
+		},
+		items: [
 			{
+				recipient_type: "EMAIL",
+				receiver: payoutEmail,
 				amount: {
-					currency_code: "SAR",
-					value: amountFromTheClientInSAR,
+					currency: "USD",
+					value: payoutAmount,
 				},
+				note: "Thanks for using our platform!",
+				sender_item_id:
+					"Payouts_Item_" + Math.random().toString(36).substring(7),
 			},
 		],
 	});
 
 	try {
-		// Call PayPal to set up a payment
-		const createResponse = await client().execute(request);
-
-		// If the response was successful, proceed to update the reservation
-		if (createResponse.statusCode === 201) {
-			const approvalUrl = createResponse.result.links.find(
-				(link) => link.rel === "approve"
-			).href;
-
-			await Reservations.findByIdAndUpdate(reservationId, {
-				$set: {
-					payment_details: {
-						orderId: createResponse.result.id,
-						amount: amountFromTheClientInSAR,
-						currency: "SAR",
-					},
-					payment_status: "Pending",
-				},
-			});
-
-			res.json({
-				success: true,
-				message: "Order created successfully. Redirecting to PayPal.",
-				approvalUrl: approvalUrl,
-			});
-		} else {
-			res.status(500).json({
-				success: false,
-				message: "Unable to create order. Try again later.",
-			});
-		}
+		const response = await client().execute(request);
+		res.json({
+			success: true,
+			message: "Payout initiated successfully.",
+			payoutBatchId: response.result.batch_header.payout_batch_id,
+		});
 	} catch (err) {
 		console.error(err);
 		res.status(500).json({
 			success: false,
-			message: "An error occurred while processing payment.",
+			message: "An error occurred while initiating the payout.",
 			error: err.message,
 		});
 	}
