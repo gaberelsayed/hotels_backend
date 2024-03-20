@@ -1648,6 +1648,7 @@ exports.agodaDataDump = async (req, res) => {
 			if (existingReservation) {
 				const payment_details = existingReservation.payment_details;
 				const payment = existingReservation.payment;
+				const paid_amount = existingReservation.paid_amount;
 
 				const {
 					customer_details,
@@ -1670,6 +1671,7 @@ exports.agodaDataDump = async (req, res) => {
 							// Include payment_details in the update to retain it
 							payment_details: payment_details,
 							payment: payment,
+							paid_amount: paid_amount,
 						},
 					}
 				);
@@ -1825,6 +1827,7 @@ exports.expediaDataDump = async (req, res) => {
 			if (existingReservation) {
 				const payment_details = existingReservation.payment_details;
 				const payment = existingReservation.payment;
+				const paid_amount = existingReservation.paid_amount;
 
 				const {
 					customer_details,
@@ -1847,6 +1850,7 @@ exports.expediaDataDump = async (req, res) => {
 							// Include payment_details in the update to retain it
 							payment_details: payment_details,
 							payment: payment,
+							paid_amount: paid_amount,
 						},
 					}
 				);
@@ -1999,6 +2003,7 @@ exports.airbnb = async (req, res) => {
 			if (existingReservation) {
 				const payment_details = existingReservation.payment_details;
 				const payment = existingReservation.payment;
+				const paid_amount = existingReservation.paid_amount;
 
 				const {
 					customer_details,
@@ -2021,6 +2026,7 @@ exports.airbnb = async (req, res) => {
 							// Include payment_details in the update to retain it
 							payment_details: payment_details,
 							payment: payment,
+							paid_amount: paid_amount,
 						},
 					}
 				);
@@ -2215,6 +2221,7 @@ exports.bookingDataDump = async (req, res) => {
 			if (existingReservation) {
 				const payment_details = existingReservation.payment_details;
 				const payment = existingReservation.payment;
+				const paid_amount = existingReservation.paid_amount;
 
 				const {
 					customer_details,
@@ -2237,6 +2244,7 @@ exports.bookingDataDump = async (req, res) => {
 							// Include payment_details in the update to retain it
 							payment_details: payment_details,
 							payment: payment,
+							paid_amount: paid_amount,
 						},
 					}
 				);
@@ -2433,6 +2441,7 @@ exports.janatDataDump = async (req, res) => {
 			if (existingReservation) {
 				const payment_details = existingReservation.payment_details;
 				const payment = existingReservation.payment;
+				const paid_amount = existingReservation.paid_amount;
 
 				const {
 					customer_details,
@@ -2455,6 +2464,7 @@ exports.janatDataDump = async (req, res) => {
 							// Include payment_details in the update to retain it
 							payment_details: payment_details,
 							payment: payment,
+							paid_amount: paid_amount,
 						},
 					}
 				);
