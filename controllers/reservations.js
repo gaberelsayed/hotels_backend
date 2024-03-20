@@ -1646,7 +1646,7 @@ exports.agodaDataDump = async (req, res) => {
 			});
 
 			if (existingReservation) {
-				const paymentDetails = existingReservation.payment_details;
+				const payment_details = existingReservation.payment_details;
 				const payment = existingReservation.payment;
 
 				const {
@@ -1668,7 +1668,7 @@ exports.agodaDataDump = async (req, res) => {
 									? "no_show"
 									: existingReservation.reservation_status,
 							// Include payment_details in the update to retain it
-							payment_details: paymentDetails,
+							payment_details: payment_details,
 							payment: payment,
 						},
 					}
@@ -1823,7 +1823,7 @@ exports.expediaDataDump = async (req, res) => {
 			);
 
 			if (existingReservation) {
-				const paymentDetails = existingReservation.payment_details;
+				const payment_details = existingReservation.payment_details;
 				const payment = existingReservation.payment;
 
 				const {
@@ -1845,7 +1845,7 @@ exports.expediaDataDump = async (req, res) => {
 									? "no_show"
 									: existingReservation.reservation_status,
 							// Include payment_details in the update to retain it
-							payment_details: paymentDetails,
+							payment_details: payment_details,
 							payment: payment,
 						},
 					}
@@ -1997,7 +1997,7 @@ exports.airbnb = async (req, res) => {
 			});
 
 			if (existingReservation) {
-				const paymentDetails = existingReservation.payment_details;
+				const payment_details = existingReservation.payment_details;
 				const payment = existingReservation.payment;
 
 				const {
@@ -2019,7 +2019,7 @@ exports.airbnb = async (req, res) => {
 									? "no_show"
 									: existingReservation.reservation_status,
 							// Include payment_details in the update to retain it
-							payment_details: paymentDetails,
+							payment_details: payment_details,
 							payment: payment,
 						},
 					}
@@ -2213,7 +2213,7 @@ exports.bookingDataDump = async (req, res) => {
 			});
 
 			if (existingReservation) {
-				const paymentDetails = existingReservation.payment_details;
+				const payment_details = existingReservation.payment_details;
 				const payment = existingReservation.payment;
 
 				const {
@@ -2235,7 +2235,7 @@ exports.bookingDataDump = async (req, res) => {
 									? "no_show"
 									: existingReservation.reservation_status,
 							// Include payment_details in the update to retain it
-							payment_details: paymentDetails,
+							payment_details: payment_details,
 							payment: payment,
 						},
 					}
@@ -2431,7 +2431,7 @@ exports.janatDataDump = async (req, res) => {
 			});
 
 			if (existingReservation) {
-				const paymentDetails = existingReservation.payment_details;
+				const payment_details = existingReservation.payment_details;
 				const payment = existingReservation.payment;
 
 				const {
@@ -2453,7 +2453,7 @@ exports.janatDataDump = async (req, res) => {
 									? "no_show"
 									: existingReservation.reservation_status,
 							// Include payment_details in the update to retain it
-							payment_details: paymentDetails,
+							payment_details: payment_details,
 							payment: payment,
 						},
 					}
