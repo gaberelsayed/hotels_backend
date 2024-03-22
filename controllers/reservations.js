@@ -1513,6 +1513,7 @@ exports.summaryBySource = async () => {
 				$group: {
 					_id: "$booking_source", // Group by booking_source
 					total_amount: { $sum: "$total_amount" }, // Sum of total_amount for each group
+					sub_total: { $sum: "$sub_total" }, // Sum of total_amount for each group
 					reservation_count: { $sum: 1 }, // Count of reservations for each group
 				},
 			},
@@ -1521,6 +1522,7 @@ exports.summaryBySource = async () => {
 					_id: 0, // Exclude _id from results
 					booking_source: "$_id", // Rename _id to booking_source
 					total_amount: 1, // Include total_amount
+					sub_amount: 1, // Include sub_amount
 					reservation_count: 1, // Include reservation_count
 				},
 			},
@@ -2536,14 +2538,23 @@ exports.dayoverday = async (req, res) => {
 
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
-		today.setDate(today.getDate() + 2); // Add 2 days to today
+		today.setDate(today.getDate() + 2); // This ensures that "today" includes all bookings for the current day.
 		const past25Days = new Date(today);
-		past25Days.setDate(past25Days.getDate() - 25);
+		past25Days.setDate(past25Days.getDate() - 25); // This sets the start date to 25 days before "today".
 
 		const matchCondition = {
 			hotelId: ObjectId(hotelId),
 			belongsTo: ObjectId(userMainId),
-			booked_at: { $gte: past25Days, $lte: today },
+			checkout_date: {
+				$gte: past25Days,
+				$lte: today,
+			},
+			$expr: {
+				$ne: [
+					{ $dateToString: { format: "%Y-%m-%d", date: "$checkout_date" } },
+					"2024-03-15",
+				],
+			},
 		};
 
 		const aggregation = await Reservations.aggregate([
@@ -2564,7 +2575,7 @@ exports.dayoverday = async (req, res) => {
 									{
 										$regexMatch: {
 											input: "$reservation_status",
-											regex: /cancelled|checkedout|checkout/,
+											regex: /cancelled|checkedout|checkout|no_show/,
 											options: "i",
 										},
 									},
@@ -2582,20 +2593,22 @@ exports.dayoverday = async (req, res) => {
 			},
 			{
 				$group: {
-					_id: { $dateToString: { format: "%Y-%m-%d", date: "$booked_at" } },
+					_id: {
+						$dateToString: { format: "%Y-%m-%d", date: "$checkout_date" },
+					}, // Use checkout_date here
 					totalReservations: { $sum: 1 },
-					totalAmount: { $sum: "$total_amount" },
+					totalAmount: { $sum: "$sub_total" },
 					cancelledReservations: { $sum: { $cond: ["$isCancelled", 1, 0] } },
 					cancelledAmount: {
-						$sum: { $cond: ["$isCancelled", "$total_amount", 0] },
+						$sum: { $cond: ["$isCancelled", "$sub_total", 0] },
 					},
 					inProgressReservations: { $sum: { $cond: ["$isInProgress", 1, 0] } },
 					inProgressAmount: {
-						$sum: { $cond: ["$isInProgress", "$total_amount", 0] },
+						$sum: { $cond: ["$isInProgress", "$sub_total", 0] },
 					},
 				},
 			},
-			{ $sort: { _id: 1 } },
+			{ $sort: { _id: 1 } }, // Sort by the _id field which is now the formatted checkout_date
 		]);
 
 		res.json(aggregation);
@@ -2614,7 +2627,7 @@ exports.monthovermonth = async (req, res) => {
 		};
 
 		// Get the current month and year
-		const currentMonth = new Date().getMonth() + 1; // +1 because getMonth() returns 0-11
+		const currentMonth = new Date().getMonth() + 3; // +1 because getMonth() returns 0-11
 		const currentYear = new Date().getFullYear();
 
 		const aggregation = await Reservations.aggregate([
@@ -2639,15 +2652,15 @@ exports.monthovermonth = async (req, res) => {
 										"November",
 										"December",
 									],
-									{ $subtract: [{ $month: "$booked_at" }, 1] },
+									{ $subtract: [{ $month: "$checkout_date" }, 1] },
 								],
 							},
 							", ",
-							{ $toString: { $year: "$booked_at" } },
+							{ $toString: { $year: "$checkout_date" } },
 						],
 					},
-					bookedMonth: { $month: "$booked_at" },
-					bookedYear: { $year: "$booked_at" },
+					bookedMonth: { $month: "$checkout_date" },
+					bookedYear: { $year: "$checkout_date" },
 					isCancelled: {
 						$regexMatch: {
 							input: "$reservation_status",
@@ -2662,7 +2675,7 @@ exports.monthovermonth = async (req, res) => {
 									{
 										$regexMatch: {
 											input: "$reservation_status",
-											regex: /cancelled|checkedout|checkout/,
+											regex: /cancelled|checkedout|checkout|no_show/,
 											options: "i",
 										},
 									},
@@ -2694,21 +2707,24 @@ exports.monthovermonth = async (req, res) => {
 			{
 				$group: {
 					_id: "$monthYear",
+					year: { $first: "$bookedYear" },
+					month: { $first: "$bookedMonth" },
 					totalReservations: { $sum: 1 },
-					totalAmount: { $sum: "$total_amount" },
+					totalAmount: { $sum: "$sub_total" },
 					cancelledReservations: { $sum: { $cond: ["$isCancelled", 1, 0] } },
 					cancelledAmount: {
-						$sum: { $cond: ["$isCancelled", "$total_amount", 0] },
+						$sum: { $cond: ["$isCancelled", "$sub_total", 0] },
 					},
 					inProgressReservations: { $sum: { $cond: ["$isInProgress", 1, 0] } },
 					inProgressAmount: {
-						$sum: { $cond: ["$isInProgress", "$total_amount", 0] },
+						$sum: { $cond: ["$isInProgress", "$sub_total", 0] },
 					},
 				},
 			},
 			{
 				$sort: {
-					"_id.year": 1,
+					year: 1,
+					month: 1,
 				},
 			},
 			{ $limit: 12 }, // Limit to the latest 12 months
@@ -2747,7 +2763,7 @@ exports.bookingSource = async (req, res) => {
 									{
 										$regexMatch: {
 											input: "$reservation_status",
-											regex: /cancelled|checkedout|checkout/,
+											regex: /cancelled|checkedout|checkout|no_show/,
 											options: "i",
 										},
 									},
@@ -2767,14 +2783,14 @@ exports.bookingSource = async (req, res) => {
 				$group: {
 					_id: "$booking_source",
 					totalReservations: { $sum: 1 },
-					totalAmount: { $sum: "$total_amount" },
+					totalAmount: { $sum: "$sub_total" },
 					cancelledReservations: { $sum: { $cond: ["$isCancelled", 1, 0] } },
 					cancelledAmount: {
-						$sum: { $cond: ["$isCancelled", "$total_amount", 0] },
+						$sum: { $cond: ["$isCancelled", "$sub_total", 0] },
 					},
 					inProgressReservations: { $sum: { $cond: ["$isInProgress", 1, 0] } },
 					inProgressAmount: {
-						$sum: { $cond: ["$isInProgress", "$total_amount", 0] },
+						$sum: { $cond: ["$isInProgress", "$sub_total", 0] },
 					},
 				},
 			},
@@ -2826,12 +2842,12 @@ exports.reservationstatus = async (req, res) => {
 				$group: {
 					_id: "$groupedStatus",
 					totalReservations: { $sum: 1 },
-					totalAmount: { $sum: "$total_amount" },
+					totalAmount: { $sum: "$sub_total" },
 					cancelledAmount: {
 						$sum: {
 							$cond: [
 								{ $eq: ["$groupedStatus", "cancelled"] },
-								"$total_amount",
+								"$sub_total",
 								0,
 							],
 						},
@@ -3074,6 +3090,7 @@ exports.ownerReport = async (req, res) => {
 					},
 					totalBookings: { $sum: 1 },
 					total_amount: { $sum: "$total_amount" },
+					sub_total: { $sum: "$sub_total" },
 					commission: { $sum: "$commission" },
 					totalBookingsHoused: {
 						$sum: {
@@ -3119,6 +3136,7 @@ exports.ownerReport = async (req, res) => {
 					booking_source: "$_id.booking_source",
 					totalBookings: 1,
 					total_amount: 1,
+					sub_total: 1,
 					commission: 1,
 					totalBookingsHoused: 1,
 					total_amountHoused: 1,

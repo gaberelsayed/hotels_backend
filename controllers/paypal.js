@@ -1,56 +1,102 @@
-const paypal = require("@paypal/payouts-sdk");
+const paypal = require("@paypal/checkout-server-sdk");
+require("dotenv").config();
 
-// Helper function to create an environment
+// Set up the environment with your PayPal credentials
 function environment() {
-	let clientId = process.env.PAYPAL_CLIENT_ID_SANDBOX;
-	let clientSecret = process.env.PAYPAL_CLIENT_SECRET_SANDBOX;
-
-	return new paypal.core.SandboxEnvironment(clientId, clientSecret);
+	let clientId = process.env.PAYPAL_CLIENTID;
+	let clientSecret = process.env.PAYPAL_SECRET;
+	return new paypal.core.LiveEnvironment(clientId, clientSecret);
 }
 
-// Helper function to create a new PayPal client
+// Create a new PayPal client
 function client() {
 	return new paypal.core.PayPalHttpClient(environment());
 }
 
-// Function to handle PayPal merchant creation and payouts
-exports.payPalMerchantCreation = async (req, res) => {
-	let payoutEmail = req.body.payoutEmail; // The vendor's PayPal email
-	let payoutAmount = req.body.payoutAmount; // The amount to payout
+// Handle order creation
+exports.createOrder = async (req, res) => {
+	const { totalAmount, currency, reservationId } = req.body; // Include reservationId in the body
+	console.log(req.body);
+	let request = new paypal.orders.OrdersCreateRequest();
+	const formattedTotalAmount = Number(totalAmount).toFixed(2);
 
-	let request = new paypal.payouts.PayoutsPostRequest();
 	request.requestBody({
-		sender_batch_header: {
-			sender_batch_id: "Payouts_" + Math.random().toString(36).substring(7),
-			email_subject: "You have received a payout!",
-		},
-		items: [
+		intent: "CAPTURE",
+		purchase_units: [
 			{
-				recipient_type: "EMAIL",
-				receiver: payoutEmail,
+				reference_id: reservationId, // Use reservationId as the reference_id
 				amount: {
-					currency: "USD",
-					value: payoutAmount,
+					currency_code: currency,
+					value: formattedTotalAmount, // Convert to string as PayPal API expects a string
 				},
-				note: "Thanks for using our platform!",
-				sender_item_id:
-					"Payouts_Item_" + Math.random().toString(36).substring(7),
+				// payee: {
+				//     // Include payee email if needed here
+				// }
 			},
 		],
+		// ... include other necessary order details
 	});
 
 	try {
-		const response = await client().execute(request);
+		const order = await client().execute(request);
 		res.json({
-			success: true,
-			message: "Payout initiated successfully.",
-			payoutBatchId: response.result.batch_header.payout_batch_id,
+			orderID: order.result.id,
 		});
 	} catch (err) {
 		console.error(err);
 		res.status(500).json({
-			success: false,
-			message: "An error occurred while initiating the payout.",
+			error: err.message,
+		});
+	}
+};
+
+// Handle order capture
+exports.captureOrder = async (req, res) => {
+	const { orderID, vendorEmail } = req.body; // Make sure to pass vendorEmail from the frontend
+	let request = new paypal.orders.OrdersCaptureRequest(orderID);
+
+	try {
+		const capture = await client().execute(request);
+		const totalAmount = capture.result.purchase_units[0].amount.value;
+		const commissionPercentage = 0.03; // 3% commission
+		const commissionAmount = (totalAmount * commissionPercentage).toFixed(2);
+		const vendorAmount = (totalAmount - commissionAmount).toFixed(2);
+
+		// You may want to save this transaction in your database before initiating the payout
+
+		// After saving, initiate the payout to the vendor
+		let payoutRequest = new paypal.payouts.PayoutsPostRequest();
+		payoutRequest.requestBody({
+			sender_batch_header: {
+				sender_batch_id: "Payouts_" + Math.random().toString(36).substring(7),
+				email_subject: "You have received a payment!",
+			},
+			items: [
+				{
+					recipient_type: "EMAIL",
+					receiver: vendorEmail,
+					amount: {
+						currency: "USD",
+						value: vendorAmount,
+					},
+					note: "Payment for services rendered",
+					sender_item_id:
+						"Payouts_Item_" + Math.random().toString(36).substring(7),
+				},
+			],
+		});
+
+		// Execute the payout
+		const payout = await client().execute(payoutRequest);
+
+		// Respond with both capture and payout details
+		res.json({
+			captureID: capture.result.purchase_units[0].payments.captures[0].id,
+			payoutBatchId: payout.result.batch_header.payout_batch_id,
+		});
+	} catch (err) {
+		console.error(err);
+		res.status(500).json({
 			error: err.message,
 		});
 	}
