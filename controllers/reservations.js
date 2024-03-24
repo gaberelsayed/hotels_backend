@@ -15,6 +15,7 @@ const {
 	reservationUpdate,
 	emailPaymentLink,
 } = require("./assets");
+const { sum } = require("lodash");
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
@@ -787,6 +788,7 @@ exports.totalGeneralReservationsRecords = async (req, res) => {
 			cancel,
 			inhouse,
 			checkedout,
+			payment,
 		} = req.params;
 
 		if (
@@ -839,6 +841,10 @@ exports.totalGeneralReservationsRecords = async (req, res) => {
 
 		if (checkedout === "1") {
 			dynamicFilter.reservation_status = "checked_out";
+		}
+
+		if (payment === "true") {
+			dynamicFilter.payment = "collected";
 		}
 
 		const total = await Reservations.countDocuments(dynamicFilter);
@@ -897,6 +903,7 @@ exports.generalReservationsReport = async (req, res) => {
 			cancel,
 			inhouse,
 			checkedout,
+			payment,
 		} = req.params;
 		const parsedPage = parseInt(page);
 		const parsedRecords = parseInt(records);
@@ -953,6 +960,10 @@ exports.generalReservationsReport = async (req, res) => {
 
 		if (checkedout === "1") {
 			dynamicFilter.reservation_status = "checked_out";
+		}
+
+		if (payment === "true") {
+			dynamicFilter.payment = "collected";
 		}
 
 		const pipeline = [
@@ -3175,6 +3186,106 @@ exports.ownerReservationToDate = async (req, res) => {
 		}).populate("hotelId", "hotelName"); // Assuming you want to include the hotel name in the response
 
 		res.json(reservations);
+	} catch (error) {
+		console.error(error);
+		res.status(500).send("Server error: " + error.message);
+	}
+};
+
+exports.CollectedReservations = async (req, res) => {
+	try {
+		const { page, records, hotelId, status } = req.params;
+		const parsedPage = parseInt(page);
+		const parsedRecords = parseInt(records);
+
+		if (
+			isNaN(parsedPage) ||
+			isNaN(parsedRecords) ||
+			!ObjectId.isValid(hotelId)
+		) {
+			return res.status(400).send("Invalid parameters");
+		}
+
+		let dynamicFilter = {
+			hotelId: ObjectId(hotelId),
+			payment: "collected", // Filter for payment field to be "collected"
+		};
+
+		// Add reservation_status to the filter if the status is not "all"
+		if (status !== "all") {
+			dynamicFilter.reservation_status = status;
+		}
+
+		const pipeline = [
+			{ $match: dynamicFilter },
+			{ $sort: { booked_at: -1 } },
+			{ $skip: (parsedPage - 1) * parsedRecords },
+			{ $limit: parsedRecords },
+			{
+				$lookup: {
+					from: "rooms",
+					localField: "roomId",
+					foreignField: "_id",
+					as: "roomDetails",
+				},
+			},
+		];
+
+		const reservations = await Reservations.aggregate(pipeline);
+		res.json(reservations);
+	} catch (error) {
+		console.error(error);
+		res.status(500).send("Server error: " + error.message);
+	}
+};
+
+exports.aggregateCollectedReservations = async (req, res) => {
+	try {
+		const { page, records, hotelId, status } = req.params;
+		const parsedPage = parseInt(page);
+		const parsedRecords = parseInt(records);
+
+		if (
+			isNaN(parsedPage) ||
+			isNaN(parsedRecords) ||
+			!ObjectId.isValid(hotelId)
+		) {
+			return res.status(400).send("Invalid parameters");
+		}
+
+		let dynamicFilter = {
+			hotelId: ObjectId(hotelId),
+			payment: "collected", // Filter for payment field to be "collected"
+		};
+
+		// Add reservation_status to the filter if the status is not "all"
+		if (status !== "all") {
+			dynamicFilter.reservation_status = status;
+		}
+
+		const pipeline = [
+			{ $match: dynamicFilter },
+			{
+				$group: {
+					_id: null,
+					total_reservation: { $sum: 1 },
+					total_amount: { $sum: "$total_amount" },
+					actual_amount: { $sum: "$sub_total" },
+				},
+			},
+			{
+				$project: {
+					_id: 0,
+					total_reservation: 1,
+					total_amount: 1,
+					actual_amount: 1,
+					commission: { $subtract: ["$total_amount", "$actual_amount"] },
+				},
+			},
+		];
+
+		const result = await Reservations.aggregate(pipeline);
+		res.json(result[0]);
 	} catch (error) {
 		console.error(error);
 		res.status(500).send("Server error: " + error.message);

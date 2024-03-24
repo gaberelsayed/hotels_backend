@@ -273,12 +273,12 @@ exports.processPayment_SAR = (req, res) => {
 							},
 						});
 
-						sendEmailWithPdf(
-							updatedReservation,
-							hotelName,
-							amountFromTheClientInSAR,
-							transactionDetails
-						);
+						// sendEmailWithPdf(
+						// 	updatedReservation,
+						// 	hotelName,
+						// 	amountFromTheClientInSAR,
+						// 	transactionDetails
+						// );
 					}
 				);
 			} else {

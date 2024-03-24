@@ -45,6 +45,8 @@ const {
 	commissionPaidReservations,
 	ownerReport,
 	ownerReservationToDate,
+	CollectedReservations,
+	aggregateCollectedReservations,
 } = require("../controllers/reservations");
 
 router.post(
@@ -63,6 +65,16 @@ router.get(
 router.get(
 	"/checkedout-reservations/list/:page/:records/:hotelId",
 	CheckedOutReservations
+);
+
+router.get(
+	"/collected-reservations/list/:status/:page/:records/:hotelId",
+	CollectedReservations
+);
+
+router.get(
+	"/aggregated-collected-reservations/list/:status/:page/:records/:hotelId",
+	aggregateCollectedReservations
 );
 
 router.get(
@@ -157,11 +169,11 @@ router.get(
 );
 
 router.get(
-	"/general-report-reservations/list/:accountId/:channel/:startDate/:endDate/:dateBy/:noshow/:cancel/:inhouse/:checkedout",
+	"/general-report-reservations/list/:accountId/:channel/:startDate/:endDate/:dateBy/:noshow/:cancel/:inhouse/:checkedout/:payment",
 	totalGeneralReservationsRecords
 );
 router.get(
-	"/reservations-general-report/:page/:records/:accountId/:channel/:startDate/:endDate/:dateBy/:noshow/:cancel/:inhouse/:checkedout",
+	"/reservations-general-report/:page/:records/:accountId/:channel/:startDate/:endDate/:dateBy/:noshow/:cancel/:inhouse/:checkedout/:payment",
 	generalReservationsReport
 );
 
