@@ -213,12 +213,20 @@ exports.processPayment_SAR = (req, res) => {
 
 	console.log(chosenCurrency, "chosenCurrencychosenCurrencychosenCurrency");
 	console.log(amountFromTheClient, "amountFromTheClientamountFromTheClient");
+	console.log(req.body.confirmation_number, "req.body.confirmation_number");
+	console.log(req.body.name, "req.body.name");
 
 	gateway.transaction.sale(
 		{
 			amount: amountFromTheClient,
 			merchantAccountId: merchantAccountId, // Specify the merchant account ID
 			paymentMethodNonce: nonceFromTheClient,
+			creditCard: {
+				cardholderName: req.body.name,
+			},
+			customFields: {
+				confirmation_number: req.body.confirmation_number, // Assuming you're sending the order number in the request body
+			},
 			options: {
 				submitForSettlement: true,
 			},
