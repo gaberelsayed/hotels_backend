@@ -16,6 +16,13 @@ exports.processPayment = async (req, res) => {
 		// Convert amount to cents
 		let amountInCents = Math.round(parseFloat(amount) * 100);
 
+		console.log(amountInCents, "amountInCents");
+		console.log(req.body.confirmation_number, "req.body.confirmation_number");
+		console.log(req.body.name, "amountInCents");
+		console.log(amountInSAR, "amountInSAR");
+		console.log(paymentMethodId, "paymentMethodId");
+		console.log(hotelName, "hotelName");
+
 		// Create a Payment Intent
 		const paymentIntent = await stripe.paymentIntents.create({
 			amount: amountInCents,
@@ -28,6 +35,7 @@ exports.processPayment = async (req, res) => {
 				name: req.body.name ? req.body.name : "",
 				phone: req.body.phone ? req.body.phone : "",
 				email: req.body.email ? req.body.email : "",
+				hotel_name: hotelName ? hotelName : "",
 				nationality: req.body.nationality ? req.body.nationality : "",
 				checkin_date: req.body.checkin_date ? req.body.checkin_date : "",
 				checkout_date: req.body.checkout_date ? req.body.checkout_date : "",
