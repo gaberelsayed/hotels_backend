@@ -23,6 +23,14 @@ exports.processPayment = async (req, res) => {
 			payment_method: paymentMethodId,
 			confirm: true, // Automatically confirm the payment
 			automatic_payment_methods: { enabled: true, allow_redirects: "never" },
+			metadata: {
+				confirmation_number: req.body.confirmation_number,
+				name: req.body.name,
+				phone: req.body.phone,
+				email: req.body.email,
+				nationality: req.body.nationality,
+				// Any other data you'd like to store
+			},
 		});
 
 		// Update the reservation with payment details
