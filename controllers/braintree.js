@@ -215,6 +215,9 @@ exports.processPayment_SAR = (req, res) => {
 	console.log(amountFromTheClient, "amountFromTheClientamountFromTheClient");
 	console.log(req.body.confirmation_number, "req.body.confirmation_number");
 	console.log(req.body.name, "req.body.name");
+	console.log(req.body.passport, "req.body.passport");
+	console.log(req.body.nationality, "req.body.nationality");
+	console.log(req.body.phone, "req.body.phone");
 
 	gateway.transaction.sale(
 		{
@@ -225,7 +228,10 @@ exports.processPayment_SAR = (req, res) => {
 				cardholderName: req.body.name,
 			},
 			customFields: {
-				confirmation_number: req.body.confirmation_number, // Assuming you're sending the order number in the request body
+				confirmation_number: req.body.confirmation_number,
+				passport: req.body.passport,
+				nationality: req.body.nationality,
+				phone: req.body.phone,
 			},
 			options: {
 				submitForSettlement: true,

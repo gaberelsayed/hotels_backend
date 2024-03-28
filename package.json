@@ -15,6 +15,7 @@
 		"@paypal/checkout-server-sdk": "^1.0.3",
 		"@paypal/payouts-sdk": "^1.1.1",
 		"@sendgrid/mail": "^7.6.0",
+		"@stripe/stripe-js": "^3.1.0",
 		"api": "^5.0.5",
 		"braintree": "^3.8.0",
 		"cloudinary": "^1.27.1",
@@ -36,6 +37,7 @@
 		"nodemailer": "^6.9.8",
 		"nodemon": "^2.0.15",
 		"puppeteer": "^21.10.0",
+		"stripe": "^14.22.0",
 		"twilio": "^3.71.3",
 		"uuid": "^8.3.2",
 		"xlsx": "^0.18.5"
