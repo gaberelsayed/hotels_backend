@@ -25,12 +25,15 @@ exports.processPayment = async (req, res) => {
 			automatic_payment_methods: { enabled: true, allow_redirects: "never" },
 			metadata: {
 				confirmation_number: req.body.confirmation_number,
-				name: req.body.name,
-				phone: req.body.phone,
-				email: req.body.email,
-				nationality: req.body.nationality,
-				checkin_date: req.body.checkin_date,
-				checkout_date: req.body.checkout_date,
+				name: req.body.name ? req.body.name : "",
+				phone: req.body.phone ? req.body.phone : "",
+				email: req.body.email ? req.body.email : "",
+				nationality: req.body.nationality ? req.body.nationality : "",
+				checkin_date: req.body.checkin_date ? req.body.checkin_date : "",
+				checkout_date: req.body.checkout_date ? req.body.checkout_date : "",
+				reservation_status: req.body.reservation_status
+					? req.body.reservation_status
+					: "",
 				// Any other data you'd like to store
 			},
 		});
