@@ -29,6 +29,8 @@ exports.processPayment = async (req, res) => {
 				phone: req.body.phone,
 				email: req.body.email,
 				nationality: req.body.nationality,
+				checkin_date: req.body.checkin_date,
+				checkout_date: req.body.checkout_date,
 				// Any other data you'd like to store
 			},
 		});
