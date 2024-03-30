@@ -197,3 +197,25 @@ exports.processSubscription = async (req, res) => {
 		});
 	}
 };
+
+exports.createPaymentIntent = async (req, res) => {
+	try {
+		const { amount } = req.body; // Make sure you validate and handle the amount securely
+
+		const paymentIntent = await stripe.paymentIntents.create({
+			amount,
+			currency: "usd",
+			// Add authentication by passing in a customer or setting up a receipt email
+			// receipt_email: req.user.email,
+			// customer: stripeCustomerId,
+		});
+
+		res.json({ clientSecret: paymentIntent.client_secret });
+	} catch (error) {
+		console.error("Stripe error:", error);
+		res.status(500).json({
+			result: "error",
+			message: error.message,
+		});
+	}
+};
