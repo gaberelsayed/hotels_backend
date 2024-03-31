@@ -30,6 +30,7 @@ exports.processPayment = async (req, res) => {
 			payment_method: paymentMethodId,
 			confirm: true, // Automatically confirm the payment
 			automatic_payment_methods: { enabled: true, allow_redirects: "never" },
+			// payment_method_types: ["card"],
 			metadata: {
 				confirmation_number: req.body.confirmation_number,
 				name: req.body.name ? req.body.name : "",
