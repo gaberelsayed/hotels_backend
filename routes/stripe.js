@@ -8,6 +8,8 @@ const {
 	processPaymentWithCommission,
 	processSubscription,
 	createPaymentIntent,
+	createCheckoutSession,
+	stripeWebhook,
 } = require("../controllers/stripe");
 
 // Stripe payment routes
@@ -19,6 +21,13 @@ router.post("/stripe/subscription", processSubscription);
 
 // Route for creating Payment Intent and returning the client secret
 router.post("/create-payment-intent", createPaymentIntent);
+
+router.post("/create-checkout-session", createCheckoutSession);
+router.post(
+	"/webhook",
+	express.raw({ type: "application/json" }),
+	stripeWebhook
+);
 
 // User parameter to automatically load user data
 router.param("userId", userById);
