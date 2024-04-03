@@ -14,13 +14,13 @@ const {
 
 // Stripe payment routes
 router.post("/stripe/payment/:reservationId", processPayment);
+// Route for creating Payment Intent and returning the client secret
+router.post("/create-payment-intent", createPaymentIntent);
+
 router.post("/stripe/commission-payment", processPaymentWithCommission);
 
 // Stripe subscription routes
 router.post("/stripe/subscription", processSubscription);
-
-// Route for creating Payment Intent and returning the client secret
-router.post("/create-payment-intent", createPaymentIntent);
 
 router.post("/create-checkout-session", createCheckoutSession);
 router.post(
