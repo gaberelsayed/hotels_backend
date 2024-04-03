@@ -2,83 +2,80 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const Reservations = require("../models/reservations");
 const HotelDetails = require("../models/hotel_details");
 
+exports.createPaymentIntent = async (req, res) => {
+	try {
+		const { amount, metadata } = req.body; // Assuming metadata is passed in the request body
+
+		const paymentIntent = await stripe.paymentIntents.create({
+			amount,
+			currency: "USD",
+			metadata,
+			payment_method_types: ["card"],
+		});
+
+		res.json({ clientSecret: paymentIntent.client_secret });
+	} catch (error) {
+		console.error("Stripe error:", error);
+		res.status(500).json({
+			result: "error",
+			message: error.message,
+		});
+	}
+};
+
 exports.processPayment = async (req, res) => {
 	try {
-		let {
-			paymentMethodId,
-			hotelName,
-			amount,
-			amountInSAR,
-			reservationId,
-			chosenCurrency,
-		} = req.body;
+		const { paymentMethodId, paymentIntentId, reservationId, amountInSAR } =
+			req.body;
 
-		// Convert amount to cents
-		let amountInCents = Math.round(parseFloat(amount) * 100);
-
-		console.log(amountInCents, "amountInCents");
-		console.log(req.body.confirmation_number, "req.body.confirmation_number");
-		console.log(req.body.name, "amountInCents");
-		console.log(amountInSAR, "amountInSAR");
-		console.log(paymentMethodId, "paymentMethodId");
-		console.log(hotelName, "hotelName");
-
-		// Create a Payment Intent
-		const paymentIntent = await stripe.paymentIntents.create({
-			amount: amountInCents,
-			currency: chosenCurrency,
+		// Confirm the existing payment intent with the provided payment method
+		const paymentIntent = await stripe.paymentIntents.confirm(paymentIntentId, {
 			payment_method: paymentMethodId,
-			confirm: true, // Automatically confirm the payment
-			automatic_payment_methods: { enabled: true, allow_redirects: "never" },
-			// payment_method_types: ["card"],
-			metadata: {
-				confirmation_number: req.body.confirmation_number,
-				name: req.body.name ? req.body.name : "",
-				phone: req.body.phone ? req.body.phone : "",
-				email: req.body.email ? req.body.email : "",
-				hotel_name: hotelName ? hotelName : "",
-				nationality: req.body.nationality ? req.body.nationality : "",
-				checkin_date: req.body.checkin_date ? req.body.checkin_date : "",
-				checkout_date: req.body.checkout_date ? req.body.checkout_date : "",
-				reservation_status: req.body.reservation_status
-					? req.body.reservation_status
-					: "",
-				// Any other data you'd like to store
-			},
 		});
 
-		// Update the reservation with payment details
-		const transactionDetails = {
-			transactionId: paymentIntent.id,
-			amount: paymentIntent.amount / 100, // Convert back to dollars
-			currency: paymentIntent.currency,
-			status: paymentIntent.status,
-			paymentMethodId: paymentIntent.payment_method,
-			createdAt: paymentIntent.created,
-		};
+		if (
+			paymentIntent.status === "requires_action" ||
+			paymentIntent.status === "requires_source_action"
+		) {
+			res.json({
+				success: true,
+				requiresAction: true,
+				paymentIntentId: paymentIntent.id,
+				message:
+					"3D Secure authentication is required. Please complete the authentication.",
+			});
+		} else {
+			const transactionDetails = {
+				transactionId: paymentIntent.id,
+				amount: paymentIntent.amount / 100,
+				currency: paymentIntent.currency,
+				status: paymentIntent.status,
+				paymentMethodId: paymentIntent.payment_method,
+				createdAt: paymentIntent.created,
+			};
 
-		const updatedReservation = await Reservations.findByIdAndUpdate(
-			reservationId,
-			{
-				$set: {
-					payment_details: transactionDetails,
-					paid_amount: amountInSAR,
-					payment: "collected",
+			const updatedReservation = await Reservations.findByIdAndUpdate(
+				reservationId,
+				{
+					$set: {
+						payment_details: transactionDetails,
+						paid_amount: amountInSAR,
+						payment: "collected",
+					},
 				},
-			},
-			{ new: true }
-		);
+				{ new: true }
+			);
 
-		res.json({
-			success: true,
-			message: "Payment processed and reservation updated successfully.",
-			updatedReservation: {
-				id: updatedReservation._id,
-				paymentDetails: transactionDetails,
-			},
-		});
+			res.json({
+				success: true,
+				message: "Payment processed and reservation updated successfully.",
+				updatedReservation: {
+					id: updatedReservation._id,
+					paymentDetails: transactionDetails,
+				},
+			});
+		}
 	} catch (error) {
-		console.log(error.message, "Message Error");
 		console.error("Stripe error:", error);
 		res.status(500).json({
 			success: false,
@@ -190,28 +187,6 @@ exports.processSubscription = async (req, res) => {
 			subscription: subscription,
 			updatedHotel: updatedHotel,
 		});
-	} catch (error) {
-		console.error("Stripe error:", error);
-		res.status(500).json({
-			result: "error",
-			message: error.message,
-		});
-	}
-};
-
-exports.createPaymentIntent = async (req, res) => {
-	try {
-		const { amount } = req.body; // Make sure you validate and handle the amount securely
-
-		const paymentIntent = await stripe.paymentIntents.create({
-			amount,
-			currency: "usd",
-			// Add authentication by passing in a customer or setting up a receipt email
-			// receipt_email: req.user.email,
-			// customer: stripeCustomerId,
-		});
-
-		res.json({ clientSecret: paymentIntent.client_secret });
 	} catch (error) {
 		console.error("Stripe error:", error);
 		res.status(500).json({
