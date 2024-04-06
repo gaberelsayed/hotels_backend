@@ -10,12 +10,16 @@ const {
 	createPaymentIntent,
 	createCheckoutSession,
 	stripeWebhook,
+	creatingConnectAccount,
+	updatingReservation,
 } = require("../controllers/stripe");
+router.post("/stripe/create-connect-account/:hotelId", creatingConnectAccount);
 
 // Stripe payment routes
 router.post("/stripe/payment/:reservationId", processPayment);
 // Route for creating Payment Intent and returning the client secret
 router.post("/create-payment-intent", createPaymentIntent);
+router.put("/stripe/update-reservation", updatingReservation);
 
 router.post("/stripe/commission-payment", processPaymentWithCommission);
 

@@ -1,6 +1,8 @@
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const Reservations = require("../models/reservations");
 const HotelDetails = require("../models/hotel_details");
+const mongoose = require("mongoose");
+const ObjectId = mongoose.Types.ObjectId;
 
 exports.createPaymentIntent = async (req, res) => {
 	try {
@@ -83,6 +85,29 @@ exports.processPayment = async (req, res) => {
 			message: error.message,
 		});
 	}
+};
+
+exports.updatingReservation = async (req, res) => {
+	const updatedReservation = await Reservations.findByIdAndUpdate(
+		req.body.reservationId,
+		{
+			$set: {
+				payment_details: req.body.transactionDetails,
+				paid_amount: req.body.paid_amount,
+				payment: "collected",
+			},
+		},
+		{ new: true }
+	);
+
+	res.json({
+		success: true,
+		message: "Payment processed and reservation updated successfully.",
+		updatedReservation: {
+			id: updatedReservation._id,
+			paymentDetails: req.body.transactionDetails,
+		},
+	});
 };
 
 exports.processPaymentWithCommission = async (req, res) => {
@@ -300,4 +325,36 @@ exports.stripeWebhook = async (req, res) => {
 
 	// Return a response to acknowledge receipt of the event
 	res.json({ received: true });
+};
+
+exports.creatingConnectAccount = async (req, res) => {
+	console.log("Creating connect account");
+	const hotel = await HotelDetails.findById(req.params.hotelId).exec();
+
+	if (!hotel.stripe_account_id) {
+		const account = await stripe.accounts.create({
+			type: "express",
+		});
+
+		hotel.stripe_account_id = account.id;
+		hotel.save();
+	}
+
+	let accountLink = await stripe.accountLinks.create({
+		account: hotel.stripe_account_id,
+		refresh_url: `${process.env.CLIENT_URL}/admin-management/settings/${
+			hotel._id
+		}/${ObjectId(hotel.belongsTo)}?payouts`,
+		return_url: `${process.env.CLIENT_URL}/admin-management/settings/${
+			hotel._id
+		}/${ObjectId(hotel.belongsTo)}?payouts`,
+		type: "account_onboarding",
+	});
+
+	accountLink = Object.assign(accountLink, {
+		"stripe_user[email]": hotel.belongsTo.email || undefined,
+	});
+
+	console.log(accountLink, "AccountLinkkkkkkkkkkkkkkkk");
+	res.json(accountLink);
 };

@@ -179,9 +179,19 @@ const hotel_detailsSchema = new mongoose.Schema(
 			type: String,
 			default: "unavailable",
 		},
+
 		subscriptionId: {
 			type: String,
 			default: "unavailable",
+		},
+
+		stripe_account_id: {
+			type: String,
+			default: "",
+		},
+
+		stripe_seller: {
+			type: Object,
 		},
 
 		belongsTo: { type: ObjectId, ref: "User" },
