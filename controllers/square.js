@@ -123,6 +123,7 @@ exports.processSquarePayment = async (req, res) => {
 				// Handle unsuccessful payment attempts
 				res.status(400).json({
 					success: false,
+					updatedReservation: updatedReservation,
 					error: "Payment was not successful.",
 					message: paymentResult.payment
 						? paymentResult.payment.status
