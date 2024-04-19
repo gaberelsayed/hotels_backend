@@ -108,6 +108,18 @@ exports.processSquarePayment = async (req, res) => {
 					},
 				});
 			} else {
+				// Update the reservation with payment details
+				const updatedReservation = await Reservations.findByIdAndUpdate(
+					reservationId,
+					{
+						$set: {
+							payment_details: transactionDetails,
+							payment: "collected_square failed",
+						},
+					},
+					{ new: true }
+				);
+
 				// Handle unsuccessful payment attempts
 				res.status(400).json({
 					success: false,
