@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 const ObjectId = mongoose.Types.ObjectId;
 
 exports.createPaymentIntent = async (req, res) => {
+	console.log(req.body, "req.body");
 	try {
 		const { amount, metadata } = req.body; // Assuming metadata is passed in the request body
 
@@ -94,7 +95,7 @@ exports.updatingReservation = async (req, res) => {
 			$set: {
 				payment_details: req.body.transactionDetails,
 				paid_amount: req.body.paid_amount,
-				payment: "collected",
+				payment: "collected_stripe",
 			},
 		},
 		{ new: true }
