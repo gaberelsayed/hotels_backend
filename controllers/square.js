@@ -32,7 +32,8 @@ exports.processSquarePayment = async (req, res) => {
 		// Create an order with custom fields
 		const { result: orderResult } = await client.ordersApi.createOrder({
 			order: {
-				locationId: "LSCEA11F58GQF",
+				locationId: "LSCEA11F58GQF", //Production
+				// locationId: "LSWZYQNK2HY28",
 				customFields: [
 					{ label: "Reservation ID", value: reservationId },
 					{ label: "Hotel Name", value: reservation?.hotelId.hotelName },
