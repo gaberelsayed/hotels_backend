@@ -16,32 +16,25 @@ exports.processSquarePayment = async (req, res) => {
 			sourceId,
 			reservationId,
 			amount,
-			currency = "USD",
+			currency,
 			reservation,
 			amountInSar,
 		} = req.body;
 
-		console.log(amountInSar, "amountInSar");
-		console.log(reservationId, "reservationId");
-		// Ensure amount is treated as a number and convert to smallest currency unit (e.g., cents for USD)
 		const amountInMinorUnits = Math.round(Number(amount) * 100);
-
-		// Generate a unique idempotency key for the order
 		const orderKey = crypto.randomUUID();
 
-		// Create an order with custom fields
 		const { result: orderResult } = await client.ordersApi.createOrder({
 			order: {
 				locationId: "LSCEA11F58GQF", //Production
-				// locationId: "LSWZYQNK2HY28",
+				// locationId: "LSWZYQNK2HY28", //Test
 				customFields: [
 					{ label: "Reservation ID", value: reservationId },
-					{ label: "Hotel Name", value: reservation?.hotelId.hotelName },
+					{ label: "Hotel Name", value: reservation.hotelId.hotelName },
 					{
 						label: "Confirmation Number",
-						value: reservation?.confirmation_number,
+						value: reservation.confirmation_number,
 					},
-					// Add more custom fields as needed
 				],
 				lineItems: [
 					{
@@ -49,7 +42,7 @@ exports.processSquarePayment = async (req, res) => {
 						quantity: "1",
 						basePriceMoney: {
 							amount: amountInMinorUnits,
-							currency: "USD",
+							currency: currency,
 						},
 					},
 				],
@@ -58,36 +51,29 @@ exports.processSquarePayment = async (req, res) => {
 		});
 
 		if (orderResult.order && orderResult.order.id) {
-			// Generate a unique idempotency key for the payment
 			const paymentKey = crypto.randomUUID();
 
-			// Create a payment linked to the order
 			const { result: paymentResult } = await client.paymentsApi.createPayment({
 				sourceId,
 				idempotencyKey: paymentKey,
 				amountMoney: { amount: amountInMinorUnits, currency },
-				orderId: orderResult.order.id, // Link the payment to the order
-				note: "Optional additional note about the payment",
+				orderId: orderResult.order.id,
 			});
 
-			// Check if the payment was successful
 			if (
 				paymentResult.payment &&
 				paymentResult.payment.status === "COMPLETED"
 			) {
-				// Prepare payment details for storing
 				const transactionDetails = {
-					transactionId: paymentResult?.payment.id,
+					transactionId: paymentResult.payment.id,
 					amount: amount,
-					currency: paymentResult.payment?.amountMoney.currency,
-					status: paymentResult.payment?.status,
-					sourceType: paymentResult.payment?.sourceType,
-					receiptUrl: paymentResult.payment?.receiptUrl,
-					orderId: paymentResult.payment?.orderId,
-					// Include any other fields you find relevant from the response
+					currency: paymentResult.payment.amountMoney.currency,
+					status: paymentResult.payment.status,
+					sourceType: paymentResult.payment.sourceType,
+					receiptUrl: paymentResult.payment.receiptUrl,
+					orderId: paymentResult.payment.orderId,
 				};
 
-				// Update the reservation with payment details
 				const updatedReservation = await Reservations.findByIdAndUpdate(
 					reservationId,
 					{
@@ -103,28 +89,11 @@ exports.processSquarePayment = async (req, res) => {
 				res.json({
 					success: true,
 					message: "Payment processed and reservation updated successfully.",
-					updatedReservation: {
-						id: updatedReservation._id,
-						paymentDetails: transactionDetails,
-					},
+					updatedReservation,
 				});
 			} else {
-				// Update the reservation with payment details
-				const updatedReservation = await Reservations.findByIdAndUpdate(
-					reservationId,
-					{
-						$set: {
-							payment_details: transactionDetails,
-							payment: "collected_square failed",
-						},
-					},
-					{ new: true }
-				);
-
-				// Handle unsuccessful payment attempts
 				res.status(400).json({
 					success: false,
-					updatedReservation: updatedReservation,
 					error: "Payment was not successful.",
 					message: paymentResult.payment
 						? paymentResult.payment.status
@@ -132,7 +101,6 @@ exports.processSquarePayment = async (req, res) => {
 				});
 			}
 		} else {
-			// Handle order creation failure
 			res.status(400).json({
 				success: false,
 				error: "Order creation failed.",
@@ -140,7 +108,6 @@ exports.processSquarePayment = async (req, res) => {
 			});
 		}
 	} catch (error) {
-		console.error("Square error:", error);
 		res.status(500).json({
 			success: false,
 			error: "An error occurred processing your payment with Square.",
