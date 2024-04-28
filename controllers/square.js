@@ -13,33 +13,14 @@ exports.processSquarePayment = async (req, res) => {
 	try {
 		const { sourceId, reservationId, amount, currency } = req.body;
 		const amountInMinorUnits = Math.round(Number(amount) * 100);
-		const orderKey = crypto.randomUUID();
+		const idempotencyKey = crypto.randomUUID();
 
-		const { result: orderResult } = await client.ordersApi.createOrder({
-			order: {
-				locationId: "LSCEA11F58GQF", //Production
-				// locationId: "LSWZYQNK2HY28", //Test
-				lineItems: [
-					{
-						name: "Reservation Payment",
-						quantity: "1",
-						basePriceMoney: { amount: amountInMinorUnits, currency },
-					},
-				],
-			},
-			idempotencyKey: orderKey,
-		});
-
-		if (!orderResult.order || !orderResult.order.id) {
-			throw new Error("Failed to create an order for the payment.");
-		}
-
-		const paymentKey = crypto.randomUUID();
 		const { result: paymentResult } = await client.paymentsApi.createPayment({
 			sourceId,
-			idempotencyKey: paymentKey,
+			idempotencyKey,
 			amountMoney: { amount: amountInMinorUnits, currency },
-			orderId: orderResult.order.id,
+			// locationId: "LSCEA11F58GQF", //Production
+			// locationId: "LSWZYQNK2HY28", //Test
 		});
 
 		if (
@@ -60,7 +41,6 @@ exports.processSquarePayment = async (req, res) => {
 			status: paymentResult.payment.status,
 			sourceType: paymentResult.payment.sourceType,
 			receiptUrl: paymentResult.payment.receiptUrl,
-			orderId: paymentResult.payment.orderId,
 		};
 
 		const updatedReservation = await Reservations.findByIdAndUpdate(
