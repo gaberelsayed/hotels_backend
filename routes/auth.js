@@ -10,9 +10,11 @@ const {
 	forgotPassword,
 	resetPassword,
 	googleLogin,
+	propertySignup,
 } = require("../controllers/auth");
 
 router.post("/signup", signup);
+router.post("/property-listing", propertySignup);
 router.post("/signin", signin);
 router.get("/signout", signout);
 

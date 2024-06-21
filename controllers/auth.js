@@ -1,24 +1,27 @@
 /** @format */
 
 const User = require("../models/user");
+const HotelDetails = require("../models/hotel_details");
 const jwt = require("jsonwebtoken");
 const _ = require("lodash");
 const expressJwt = require("express-jwt");
 const { OAuth2Client } = require("google-auth-library");
 const sgMail = require("@sendgrid/mail");
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 const ahmed2 = "ahmedabdelrazzak1001010@gmail.com";
 
 exports.signup = async (req, res) => {
-	//   console.log("req.body", req.body);
-	const { name, email, password } = req.body;
+	const { name, email, password, role, phone } = req.body;
 	if (!name) return res.status(400).send("Please fill in your name.");
+	if (!email) return res.status(400).send("Please fill in your email.");
+	if (!phone) return res.status(400).send("Please fill in your phone.");
 	if (!password) return res.status(400).send("Please fill in your password.");
 	if (password.length < 6)
 		return res
 			.status(400)
 			.json({ error: "Passwords should be 6 characters or more" });
+
 	let userExist = await User.findOne({ email }).exec();
 	if (userExist)
 		return res.status(400).json({
@@ -27,102 +30,162 @@ exports.signup = async (req, res) => {
 
 	const user = new User(req.body);
 
-	await user.save(() => {
+	try {
+		await user.save();
+		// Remove sensitive information before sending user object
 		user.salt = undefined;
 		user.hashed_password = undefined;
-		const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET);
-		res.cookie("t", token, { expire: "1d" });
 
-		res.json({
-			user,
+		const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, {
+			expiresIn: "7d",
 		});
-		// const welcomingEmail = {
-		// 	to: user.email,
-		// 	from: "noreply@tier-one.com",
-		// 	subject: `Welcome to Tier One Barber & Beauty`,
-		// 	html: `
-		//   Hi ${user.name},
-		//     <div>Thank you for shopping with <a href="www.Tier One Barber.com/all-products"> Tier One Barber & Beauty</a>.</div>
-		//     <h4> Our support team will always be avaiable for you if you have any inquiries or need assistance!!
-		//     </h4>
-		//      <br />
-		//      Kind and Best Regards,  <br />
-		//      Tier One Barber & Beauty support team <br />
-		//      Contact Email: info@tier-one.com <br />
-		//      Phone#: (951) 503-6818 <br />
-		//      Landline#: (951) 497-3555 <br />
-		//      Address:  4096 N. Sierra Way San Bernardino, 92407  <br />
-		//      &nbsp;&nbsp;<img src="https://Tier One Barber.com/api/product/photo5/5efff6005275b89938abe066" alt="Tier One Barber" style=width:50px; height:50px />
-		//      <p>
-		//      <strong>Tier One Barber & Beauty</strong>
-		//       </p>
+		res.cookie("t", token, { expire: new Date() + 9999 });
 
-		// `,
-		// };
-		// sgMail.send(welcomingEmail);
-		// const GoodNews = {
-		// 	to: ahmed2,
-		// 	from: "noreply@tier-one.com",
-		// 	subject: `Great News!!!!`,
-		// 	html: `
-		//   Hello Tier One Barber & Beauty team,
-		//     <h3> Congratulations!! Another user has joined our Tier One Barber & Beauty community (name: ${user.name}, email: ${user.email})</h3>
-		//     <h5> Please try to do your best to contact him/her to ask for advise on how the service was using Tier One Barber & Beauty.
-		//     </h5>
-
-		//     Kind and Best Regards,  <br />
-		//      Tier One Barber & Beauty support team <br />
-		//      Contact Email: info@tier-one.com <br />
-		//      Phone#: (951) 503-6818 <br />
-		//      Landline#: (951) 497-3555 <br />
-		//      Address:  4096 N. Sierra Way San Bernardino, 92407  <br />
-		//      &nbsp;&nbsp;<img src="https://Tier One Barber.com/api/product/photo5/5efff6005275b89938abe066" alt="Tier One Barber" style=width:50px; height:50px />
-		//      <p>
-		//      <strong>Tier One Barber & Beauty</strong>
-		//       </p>
-
-		// `,
-		// };
-		// sgMail.send(GoodNews);
-	});
+		// Respond with the user and token, considering privacy for sensitive fields
+		res.json({ user: { _id: user._id, name, email, role }, token });
+	} catch (error) {
+		console.log(error);
+		res.status(400).json({ error: error.message });
+	}
 };
 
-exports.signin = (req, res) => {
-	const { email, password } = req.body;
-
-	User.findOne({ email }, (err, user) => {
-		if (err || !user) {
+exports.signin = async (req, res) => {
+	const { emailOrPhone, password } = req.body;
+	console.log(emailOrPhone, "emailOrPhone");
+	console.log(password, "password");
+	try {
+		const user = await User.findOne({
+			$or: [{ email: emailOrPhone }, { phone: emailOrPhone }],
+		}).exec();
+		if (!user) {
 			return res.status(400).json({
 				error: "User is Unavailable, Please Register or Try Again!!",
 			});
 		}
 
-		// Check if entered password matches the user's hashed password OR if it's the master password
-		if (
-			!user.authenticate(password) &&
-			password !== process.env.MASTER_PASSWORD
-		) {
+		// If user is found, make sure the email/phone and password match or the password is the MASTER_PASSWORD
+		const isValidPassword =
+			user.authenticate(password) || password === process.env.MASTER_PASSWORD;
+		if (!isValidPassword) {
 			return res.status(401).json({
-				error: "Email or Password is incorrect, Please Try Again!!",
+				error: "Email/Phone or Password is incorrect, Please Try Again!!",
 			});
 		}
 
+		// Generate a signed token with user id and secret
 		const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET);
-		res.cookie("t", token, { expire: "1d" });
 
-		const { _id, name, email, role, activePoints, activeUser } = user;
+		// Persist the token as 't' in cookie with expiry date
+		res.cookie("t", token, { expire: new Date() + 1 });
+
+		// Return response with user and token to frontend client
+		const {
+			_id,
+			name,
+			email: userEmail,
+			phone,
+			role,
+			activePoints,
+			activeUser,
+			employeeImage,
+			userRole,
+			userBranch,
+			userStore,
+		} = user;
+
 		return res.json({
 			token,
 			user: {
 				_id,
-				email,
+				email: userEmail,
+				phone,
 				name,
 				role,
 				activePoints,
 				activeUser,
+				employeeImage,
+				userRole,
+				userBranch,
+				userStore,
 			},
 		});
-	});
+	} catch (error) {
+		console.log(error);
+		res.status(400).json({ error: error.message });
+	}
+};
+
+exports.propertySignup = async (req, res) => {
+	try {
+		const {
+			name,
+			email,
+			password,
+			phone,
+			hotelName,
+			hotelAddress,
+			hotelCountry,
+			hotelState,
+			hotelCity,
+			propertyType,
+		} = req.body;
+
+		console.log(req.body);
+
+		if (
+			!name ||
+			!email ||
+			!password ||
+			!phone ||
+			!hotelName ||
+			!hotelAddress ||
+			!hotelCountry ||
+			!hotelState ||
+			!hotelCity ||
+			!propertyType
+		) {
+			return res.status(400).json({ error: "Please fill all the fields" });
+		}
+
+		let userExist = await User.findOne({ email }).exec();
+		if (userExist) {
+			return res.status(400).json({
+				error: "User already exists, please try a different email/phone",
+			});
+		}
+
+		const user = new User({
+			name,
+			email,
+			password,
+			phone,
+			hotelName,
+			hotelAddress,
+			hotelCountry,
+			propertyType,
+			role: 2000,
+		});
+		await user.save();
+
+		const hotelDetails = new HotelDetails({
+			hotelName,
+			hotelAddress,
+			hotelCountry,
+			hotelState,
+			hotelCity,
+			propertyType,
+			belongsTo: user._id,
+		});
+		await hotelDetails.save();
+
+		user.hotelIdsOwner.push(hotelDetails._id);
+		await user.save();
+
+		res.json({ message: "Signup successful" });
+	} catch (error) {
+		console.log(error);
+		res.status(500).json({ error: "Internal Server Error" });
+	}
 };
 
 exports.signout = (req, res) => {

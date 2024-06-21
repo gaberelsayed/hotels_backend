@@ -17,160 +17,178 @@ const hotel_detailsSchema = new mongoose.Schema(
 			lowercase: true,
 			default: "",
 		},
-
 		hotelState: {
 			type: String,
 			trim: true,
 			lowercase: true,
 			default: "",
 		},
-
 		hotelCity: {
 			type: String,
 			trim: true,
 			lowercase: true,
 			default: "",
 		},
-
 		phone: {
 			type: String,
 			trim: true,
 			lowercase: true,
 			default: "",
 		},
-
 		hotelAddress: {
 			type: String,
 			trim: true,
 			lowercase: true,
 			default: "",
 		},
-		hotelAmenities: {
-			type: Array,
-			trim: true,
-			default: ["WiFi", "Pool", "Gym"],
-		},
-
 		hotelFloors: {
+			// How many floors in the hotel
 			type: Number,
 		},
-
 		overallRoomsCount: {
 			type: Number,
 		},
-
 		roomCountDetails: {
 			type: Object,
 			trim: true,
 			lowercase: true,
 			default: {
-				standardRooms: 0,
-				standardRoomsPrice: {
-					basePrice: 0,
-					seasonPrice: 0,
-					weekendPrice: 0,
-					lastMinuteDealPrice: 0,
+				standardRooms: {
+					count: 0,
+					price: { basePrice: 0 },
+					photos: [],
+					description: "",
+					amenities: [],
+					pricingRate: [],
+					roomColor: "#003366", // Dark Blue
 				},
-				singleRooms: 0,
-				singleRoomsPrice: {
-					basePrice: 0,
-					seasonPrice: 0,
-					weekendPrice: 0,
-					lastMinuteDealPrice: 0,
+				singleRooms: {
+					count: 0,
+					price: { basePrice: 0 },
+					photos: [],
+					description: "",
+					amenities: [],
+					pricingRate: [],
+					roomColor: "#8B0000", // Dark Red
 				},
-				doubleRooms: 0,
-				doubleRoomsPrice: {
-					basePrice: 0,
-					seasonPrice: 0,
-					weekendPrice: 0,
-					lastMinuteDealPrice: 0,
+				doubleRooms: {
+					count: 0,
+					price: { basePrice: 0 },
+					photos: [],
+					description: "",
+					amenities: [],
+					pricingRate: [],
+					roomColor: "#004d00", // Dark Green
 				},
-				twinRooms: 0,
-				twinRoomsPrice: {
-					basePrice: 0,
-					seasonPrice: 0,
-					weekendPrice: 0,
-					lastMinuteDealPrice: 0,
+				twinRooms: {
+					count: 0,
+					price: { basePrice: 0 },
+					photos: [],
+					description: "",
+					amenities: [],
+					pricingRate: [],
+					roomColor: "#800080", // Dark Purple
 				},
-				queenRooms: 0,
-				queenRoomsPrice: {
-					basePrice: 0,
-					seasonPrice: 0,
-					weekendPrice: 0,
-					lastMinuteDealPrice: 0,
+				queenRooms: {
+					count: 0,
+					price: { basePrice: 0 },
+					photos: [],
+					description: "",
+					amenities: [],
+					pricingRate: [],
+					roomColor: "#FF8C00", // Dark Orange
 				},
-				kingRooms: 0,
-				kingRoomsPrice: {
-					basePrice: 0,
-					seasonPrice: 0,
-					weekendPrice: 0,
-					lastMinuteDealPrice: 0,
+				kingRooms: {
+					count: 0,
+					price: { basePrice: 0 },
+					photos: [],
+					description: "",
+					amenities: [],
+					pricingRate: [],
+					roomColor: "#2F4F4F", // Dark Slate Gray
 				},
-				tripleRooms: 0,
-				tripleRoomsPrice: {
-					basePrice: 0,
-					seasonPrice: 0,
-					weekendPrice: 0,
-					lastMinuteDealPrice: 0,
+				tripleRooms: {
+					count: 0,
+					price: { basePrice: 0 },
+					photos: [],
+					description: "",
+					amenities: [],
+					pricingRate: [],
+					roomColor: "#8B4513", // Saddle Brown
 				},
-				quadRooms: 0,
-				quadRoomsPrice: {
-					basePrice: 0,
-					seasonPrice: 0,
-					weekendPrice: 0,
-					lastMinuteDealPrice: 0,
+				quadRooms: {
+					count: 0,
+					price: { basePrice: 0 },
+					photos: [],
+					description: "",
+					amenities: [],
+					pricingRate: [],
+					roomColor: "#00008B", // Navy
 				},
-				studioRooms: 0,
-				studioRoomsPrice: {
-					basePrice: 0,
-					seasonPrice: 0,
-					weekendPrice: 0,
-					lastMinuteDealPrice: 0,
+				studioRooms: {
+					count: 0,
+					price: { basePrice: 0 },
+					photos: [],
+					description: "",
+					amenities: [],
+					pricingRate: [],
+					roomColor: "#696969", // Dim Gray
 				},
-				suite: 0,
-				suitePrice: {
-					basePrice: 0,
-					seasonPrice: 0,
-					weekendPrice: 0,
-					lastMinuteDealPrice: 0,
+				suite: {
+					count: 0,
+					price: { basePrice: 0 },
+					photos: [],
+					description: "",
+					amenities: [],
+					pricingRate: [],
+					roomColor: "#483D8B",
 				},
-				masterSuite: 0,
-				masterSuitePrice: {
-					basePrice: 0,
-					seasonPrice: 0,
-					weekendPrice: 0,
-					lastMinuteDealPrice: 0,
+				masterSuite: {
+					count: 0,
+					price: { basePrice: 0 },
+					photos: [],
+					description: "",
+					amenities: [],
+					pricingRate: [],
+					roomColor: "#556B2F",
 				},
-				familyRooms: 0,
-				familyRoomsPrice: {
-					basePrice: 0,
-					seasonPrice: 0,
-					weekendPrice: 0,
-					lastMinuteDealPrice: 0,
+				familyRooms: {
+					count: 0,
+					price: { basePrice: 0 },
+					photos: [],
+					description: "",
+					amenities: [],
+					pricingRate: [],
+					roomColor: "#A52A2A",
+				},
+
+				individualBed: {
+					count: 0,
+					price: { basePrice: 0 },
+					photos: [],
+					description: "",
+					amenities: [],
+					pricingRate: [],
+					roomColor: "#483D8B",
 				},
 			},
 		},
-
 		pricingCalendar: {
 			type: Array,
 			default: [],
 		},
-
 		hotelPhotos: {
 			type: Array,
 			default: [],
 		},
-
 		hotelRating: {
 			type: Number,
 			default: 3.5,
 		},
-
 		parkingLot: {
 			type: Boolean,
 			default: true,
 		},
-
 		subscribed: {
 			type: Boolean,
 			default: false,
@@ -179,21 +197,41 @@ const hotel_detailsSchema = new mongoose.Schema(
 			type: String,
 			default: "unavailable",
 		},
-
 		subscriptionId: {
 			type: String,
 			default: "unavailable",
 		},
-
 		stripe_account_id: {
 			type: String,
 			default: "",
 		},
-
-		stripe_seller: {
+		propertyType: {
 			type: Object,
+			default: "hotel",
+			lowercase: true,
 		},
-
+		pictures_testing: {
+			type: Boolean,
+			default: false,
+		},
+		location_testing: {
+			type: Boolean,
+			default: false,
+		},
+		rooms_pricing_testing: {
+			type: Boolean,
+			default: false,
+		},
+		activateHotel: {
+			type: Boolean,
+			default: false,
+		},
+		currency: {
+			type: String, //Blank
+			trim: true,
+			lowercase: true,
+			default: "SAR",
+		},
 		belongsTo: { type: ObjectId, ref: "User" },
 	},
 	{ timestamps: true }

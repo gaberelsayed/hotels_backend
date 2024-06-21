@@ -19,32 +19,30 @@ const roomsSchema = new mongoose.Schema(
 		},
 
 		room_features: {
-			type: Array,
-			trim: true,
-			default: [
-				{
-					bedSize: "Double",
-					view: "city view",
-					bathroom: ["bathtub", "jacuzzi"],
-					airConditiong: "climate control features",
-					television: "Smart TV",
-					internet: ["WiFi", "Ethernet Connection"],
-					Minibar: ["Refrigerator with drinks & snacks"],
-					smoking: false,
-				},
-			],
-		},
-
-		room_pricing: {
 			type: Object,
 			trim: true,
 			default: {
-				basePrice: 0,
-				seasonPrice: 0,
-				weekendPrice: 0,
-				lastMinuteDealPrice: 0,
+				bedSize: "Double",
+				view: "city view",
+				bathroom: ["bathtub", "jacuzzi"],
+				airConditiong: "climate control features",
+				television: "Smart TV",
+				internet: ["WiFi", "Ethernet Connection"],
+				Minibar: ["Refrigerator with drinks & snacks"],
+				smoking: false,
 			},
 		},
+
+		// room_pricing: {
+		// 	type: Object,
+		// 	trim: true,
+		// 	default: {
+		// 		basePrice: 0,
+		// 		seasonPrice: 0,
+		// 		weekendPrice: 0,
+		// 		lastMinuteDealPrice: 0,
+		// 	},
+		// },
 
 		floor: {
 			type: Number,
@@ -66,6 +64,23 @@ const roomsSchema = new mongoose.Schema(
 		cleanRoom: {
 			type: Boolean,
 			default: true,
+		},
+
+		individualBeds: {
+			type: Boolean,
+			default: false,
+		},
+
+		bedsNumber: {
+			type: Array,
+			trim: true,
+			lowercase: true,
+			default: [],
+		},
+
+		bedPricing: {
+			type: Array,
+			default: [],
 		},
 
 		belongsTo: { type: ObjectId, ref: "User" },

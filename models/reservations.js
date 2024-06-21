@@ -11,6 +11,7 @@ const reservationsSchema = new mongoose.Schema(
 			lowercase: true,
 			default: "",
 		},
+
 		hr_number: {
 			type: String, //Could be left blank
 			trim: true,
@@ -186,7 +187,7 @@ const reservationsSchema = new mongoose.Schema(
 			lowercase: true, //Could be left
 			default: {
 				state: "checkout",
-				amount: "5329.06",
+				amount: "0",
 				currency: "SAR",
 				exchanged_amount: "0.0",
 				exchange_currency: "SAR",
@@ -199,17 +200,23 @@ const reservationsSchema = new mongoose.Schema(
 			},
 		},
 		pickedRoomsType: {
-			//This is important but we will discuss later
-			type: Array, //Here I only need you to look at the rooms array in the hotel runner object I gave and give me the array with the object below
+			type: Array,
 			default: [
 				{
 					room_type: "", // "name" from rooms array
 					chosenPrice: "", //"total" from the rooms array
 					count: 1, // leave the default because each object in the rooms array is supposed to be only 1 room
+					pricingByDay: [],
 				},
 			],
 		},
 		roomId: [{ type: ObjectId, ref: "Rooms", default: null }], //This could be left
+		bedNumber: {
+			type: Array, //If the guest chose to rent only a bed in a room
+			trim: true,
+			lowercase: true,
+			default: [],
+		},
 		belongsTo: { type: ObjectId, ref: "User" }, //this will be taken care of later
 		hotelId: { type: ObjectId, ref: "HotelDetails" }, //this will be taken care of later
 		housedBy: {
@@ -217,6 +224,10 @@ const reservationsSchema = new mongoose.Schema(
 			default: {
 				name: "",
 			},
+		},
+		moneyTransferredToHotel: {
+			type: Boolean,
+			default: false,
 		},
 	},
 	{ timestamps: true }

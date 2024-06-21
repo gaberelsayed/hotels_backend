@@ -15,35 +15,47 @@ exports.roomById = (req, res, next, id) => {
 	});
 };
 
-exports.create = (req, res) => {
-	// Destructure room_number and hotelId from the request body
-	const { room_number, hotelId } = req.body;
+exports.create = async (req, res) => {
+	const rooms = req.body;
 
-	// Define the condition for finding the existing room
-	const condition = { room_number, hotelId: mongoose.Types.ObjectId(hotelId) };
+	// If the request body is not an array, wrap it in an array
+	const roomsArray = Array.isArray(rooms) ? rooms : [rooms];
 
-	// Define the update operation
-	const update = req.body;
+	try {
+		const bulkOps = roomsArray.map((room) => {
+			const { room_number, hotelId } = room;
 
-	// Set the options to upsert and return the new document
-	const options = { new: true, upsert: true, setDefaultsOnInsert: true };
+			const condition = {
+				room_number,
+				hotelId: mongoose.Types.ObjectId(hotelId),
+			};
+			const update = room;
 
-	Rooms.findOneAndUpdate(condition, update, options, (err, data) => {
-		if (err) {
-			console.error(err, "Error in creating/updating room");
-			return res.status(400).json({
-				error: "Cannot create/update room",
-			});
-		}
-		// If the operation is an insert, upsert returns the document before insert, check for data
-		if (!data) {
-			return res
-				.status(201)
-				.json({ message: "Room created successfully", data: update });
-		}
-		// If the operation is an update, upsert returns the updated document
-		res.json({ message: "Room updated successfully", data });
-	});
+			return {
+				updateOne: {
+					filter: condition,
+					update: { $set: update },
+					upsert: true, // This ensures that the document is created if it doesn't exist
+				},
+			};
+		});
+
+		// Execute the bulk write operation
+		const result = await Rooms.bulkWrite(bulkOps);
+
+		const createdCount = result.upsertedCount;
+		const modifiedCount = result.modifiedCount;
+
+		res.status(201).json({
+			message: `Room(s) created/updated successfully. Created: ${createdCount}, Updated: ${modifiedCount}`,
+			data: result,
+		});
+	} catch (err) {
+		console.error(err, "Error in creating/updating rooms");
+		return res.status(400).json({
+			error: "Cannot create/update rooms",
+		});
+	}
 };
 
 exports.read = (req, res) => {
@@ -59,6 +71,8 @@ exports.update = (req, res) => {
 	room.room_pricing = req.body.room_pricing;
 	room.floor = req.body.floor;
 	room.roomColorCode = req.body.roomColorCode;
+	room.individualBeds = req.body.individualBeds;
+	room.bedsNumber = req.body.bedsNumber;
 	room.belongsTo = req.body.belongsTo;
 	room.hotelId = req.body.hotelId;
 
