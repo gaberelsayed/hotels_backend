@@ -53,17 +53,21 @@ exports.signin = async (req, res) => {
 	const { emailOrPhone, password } = req.body;
 	console.log(emailOrPhone, "emailOrPhone");
 	console.log(password, "password");
+
 	try {
+		// Find user by email or phone
 		const user = await User.findOne({
 			$or: [{ email: emailOrPhone }, { phone: emailOrPhone }],
 		}).exec();
+
+		// If user is not found
 		if (!user) {
 			return res.status(400).json({
 				error: "User is Unavailable, Please Register or Try Again!!",
 			});
 		}
 
-		// If user is found, make sure the email/phone and password match or the password is the MASTER_PASSWORD
+		// Validate the password or check if it's the master password
 		const isValidPassword =
 			user.authenticate(password) || password === process.env.MASTER_PASSWORD;
 		if (!isValidPassword) {
@@ -78,7 +82,7 @@ exports.signin = async (req, res) => {
 		// Persist the token as 't' in cookie with expiry date
 		res.cookie("t", token, { expire: new Date() + 1 });
 
-		// Return response with user and token to frontend client
+		// Destructure user object to get required fields
 		const {
 			_id,
 			name,
@@ -93,6 +97,7 @@ exports.signin = async (req, res) => {
 			userStore,
 		} = user;
 
+		// Send the response back to the client with token and user details
 		return res.json({
 			token,
 			user: {
