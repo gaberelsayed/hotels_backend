@@ -133,22 +133,120 @@ exports.propertySignup = async (req, res) => {
 			hotelState,
 			hotelCity,
 			propertyType,
+			hotelFloors,
+			existingUser,
 		} = req.body;
 
-		console.log(req.body);
+		console.log("Received request body:", req.body);
 
+		// Utility function to clean phone number
+		const cleanPhoneNumber = (phone) => {
+			// Remove spaces
+			let cleaned = phone.replace(/\s+/g, "");
+
+			// Validate and clean phone number
+			const phoneRegex = /^\+?[0-9]*$/;
+			if (!phoneRegex.test(cleaned)) {
+				throw new Error("Invalid phone number format");
+			}
+
+			// Ensure there is only one plus sign and it's at the start
+			const plusSignCount = (cleaned.match(/\+/g) || []).length;
+			if (
+				plusSignCount > 1 ||
+				(plusSignCount === 1 && cleaned.indexOf("+") !== 0)
+			) {
+				throw new Error("Invalid phone number format");
+			}
+
+			return cleaned;
+		};
+
+		let cleanedPhone;
+		try {
+			cleanedPhone = cleanPhoneNumber(phone);
+		} catch (error) {
+			return res.status(400).json({ error: error.message });
+		}
+
+		// If the request is from an existing user
+		if (existingUser) {
+			console.log("Handling existing user:", existingUser);
+			if (
+				!hotelName ||
+				!hotelAddress ||
+				!hotelCountry ||
+				!hotelState ||
+				!hotelCity ||
+				!propertyType ||
+				hotelFloors === undefined
+			) {
+				return res.status(400).json({ error: "Please fill all the fields" });
+			}
+
+			// Check for duplicate hotel name
+			let hotelExist = await HotelDetails.findOne({ hotelName }).exec();
+			if (hotelExist) {
+				return res.status(400).json({ error: "Hotel name already exists" });
+			}
+
+			// Get the existing user
+			let user = await User.findById(existingUser).exec();
+			if (!user) {
+				return res.status(400).json({
+					error: "User not found",
+				});
+			}
+
+			// Create new hotel details
+			const hotelDetails = new HotelDetails({
+				hotelName,
+				hotelAddress,
+				hotelCountry,
+				hotelState,
+				hotelCity,
+				propertyType,
+				hotelFloors: Number(hotelFloors), // Ensure hotelFloors is saved as a number
+				phone: cleanedPhone,
+				belongsTo: user._id,
+			});
+			await hotelDetails.save();
+
+			// Update hotelIdsOwner and save the user again
+			user.hotelIdsOwner.push(hotelDetails._id);
+			await user.save();
+
+			return res.json({ message: `Hotel ${hotelName} was successfully added` });
+		}
+
+		// If the request is for a new user signup
+		console.log("Handling new user signup");
 		if (
 			!name ||
 			!email ||
 			!password ||
-			!phone ||
+			!cleanedPhone ||
 			!hotelName ||
 			!hotelAddress ||
 			!hotelCountry ||
 			!hotelState ||
 			!hotelCity ||
-			!propertyType
+			!propertyType ||
+			hotelFloors === undefined
 		) {
+			console.log("Missing fields:", {
+				name,
+				email,
+				password,
+				phone: cleanedPhone,
+				hotelName,
+				hotelAddress,
+				hotelCountry,
+				hotelState,
+				hotelCity,
+				propertyType,
+				hotelFloors,
+			});
 			return res.status(400).json({ error: "Please fill all the fields" });
 		}
 
@@ -159,11 +257,17 @@ exports.propertySignup = async (req, res) => {
 			});
 		}
 
+		// Check for duplicate hotel name
+		let hotelExist = await HotelDetails.findOne({ hotelName }).exec();
+		if (hotelExist) {
+			return res.status(400).json({ error: "Hotel name already exists" });
+		}
+
 		const user = new User({
 			name,
 			email,
 			password,
-			phone,
+			phone: cleanedPhone,
 			hotelName,
 			hotelAddress,
 			hotelCountry,
@@ -179,16 +283,19 @@ exports.propertySignup = async (req, res) => {
 			hotelState,
 			hotelCity,
 			propertyType,
+			hotelFloors: Number(hotelFloors), // Ensure hotelFloors is saved as a number
+			phone: cleanedPhone,
 			belongsTo: user._id,
 		});
 		await hotelDetails.save();
 
-		user.hotelIdsOwner.push(hotelDetails._id);
+		// Update hotelIdsOwner and save the user again
+		user.hotelIdsOwner = [hotelDetails._id];
 		await user.save();
 
 		res.json({ message: "Signup successful" });
 	} catch (error) {
-		console.log(error);
+		console.log("Error:", error);
 		res.status(500).json({ error: "Internal Server Error" });
 	}
 };

@@ -18,6 +18,12 @@ const roomsSchema = new mongoose.Schema(
 			default: "Standard Room",
 		},
 
+		display_name: {
+			type: String,
+			trim: true,
+			default: "",
+		},
+
 		room_features: {
 			type: Object,
 			trim: true,

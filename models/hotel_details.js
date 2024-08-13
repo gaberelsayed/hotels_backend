@@ -49,134 +49,23 @@ const hotel_detailsSchema = new mongoose.Schema(
 			type: Number,
 		},
 		roomCountDetails: {
-			type: Object,
-			trim: true,
-			lowercase: true,
-			default: {
-				standardRooms: {
-					count: 0,
-					price: { basePrice: 0 },
-					photos: [],
-					description: "",
-					amenities: [],
-					pricingRate: [],
-					roomColor: "#003366", // Dark Blue
+			type: [
+				{
+					roomType: String, // E.g., "standardRooms"
+					count: Number,
+					price: { basePrice: Number },
+					photos: Array,
+					displayName: String, // E.g., "Ocean View Standard Room"
+					description: String,
+					amenities: Array,
+					pricingRate: Array,
+					roomColor: String,
+					activeRoom: Boolean,
 				},
-				singleRooms: {
-					count: 0,
-					price: { basePrice: 0 },
-					photos: [],
-					description: "",
-					amenities: [],
-					pricingRate: [],
-					roomColor: "#8B0000", // Dark Red
-				},
-				doubleRooms: {
-					count: 0,
-					price: { basePrice: 0 },
-					photos: [],
-					description: "",
-					amenities: [],
-					pricingRate: [],
-					roomColor: "#004d00", // Dark Green
-				},
-				twinRooms: {
-					count: 0,
-					price: { basePrice: 0 },
-					photos: [],
-					description: "",
-					amenities: [],
-					pricingRate: [],
-					roomColor: "#800080", // Dark Purple
-				},
-				queenRooms: {
-					count: 0,
-					price: { basePrice: 0 },
-					photos: [],
-					description: "",
-					amenities: [],
-					pricingRate: [],
-					roomColor: "#FF8C00", // Dark Orange
-				},
-				kingRooms: {
-					count: 0,
-					price: { basePrice: 0 },
-					photos: [],
-					description: "",
-					amenities: [],
-					pricingRate: [],
-					roomColor: "#2F4F4F", // Dark Slate Gray
-				},
-				tripleRooms: {
-					count: 0,
-					price: { basePrice: 0 },
-					photos: [],
-					description: "",
-					amenities: [],
-					pricingRate: [],
-					roomColor: "#8B4513", // Saddle Brown
-				},
-				quadRooms: {
-					count: 0,
-					price: { basePrice: 0 },
-					photos: [],
-					description: "",
-					amenities: [],
-					pricingRate: [],
-					roomColor: "#00008B", // Navy
-				},
-				studioRooms: {
-					count: 0,
-					price: { basePrice: 0 },
-					photos: [],
-					description: "",
-					amenities: [],
-					pricingRate: [],
-					roomColor: "#696969", // Dim Gray
-				},
-				suite: {
-					count: 0,
-					price: { basePrice: 0 },
-					photos: [],
-					description: "",
-					amenities: [],
-					pricingRate: [],
-					roomColor: "#483D8B",
-				},
-				masterSuite: {
-					count: 0,
-					price: { basePrice: 0 },
-					photos: [],
-					description: "",
-					amenities: [],
-					pricingRate: [],
-					roomColor: "#556B2F",
-				},
-				familyRooms: {
-					count: 0,
-					price: { basePrice: 0 },
-					photos: [],
-					description: "",
-					amenities: [],
-					pricingRate: [],
-					roomColor: "#A52A2A",
-				},
+			],
+			default: [{ activeRoom: true }],
+		},
 
-				individualBed: {
-					count: 0,
-					price: { basePrice: 0 },
-					photos: [],
-					description: "",
-					amenities: [],
-					pricingRate: [],
-					roomColor: "#483D8B",
-				},
-			},
-		},
-		pricingCalendar: {
-			type: Array,
-			default: [],
-		},
 		hotelPhotos: {
 			type: Array,
 			default: [],
@@ -231,6 +120,19 @@ const hotel_detailsSchema = new mongoose.Schema(
 			trim: true,
 			lowercase: true,
 			default: "SAR",
+		},
+		location: {
+			type: {
+				type: String,
+				enum: ["Point"], // 'location.type' must be 'Point'
+				required: true,
+				default: "Point",
+			},
+			coordinates: {
+				type: [Number],
+				required: true,
+				default: [0, 0], // Default to coordinates [longitude, latitude]
+			},
 		},
 		belongsTo: { type: ObjectId, ref: "User" },
 	},

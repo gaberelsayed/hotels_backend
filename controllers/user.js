@@ -231,7 +231,8 @@ exports.getSingleUser = (req, res) => {
 	const { accountId } = req.params; // Get accountId from URL parameters
 	const belongsTo = mongoose.Types.ObjectId(accountId);
 
-	User.findOne({ _id: belongsTo }) // Assuming _id is used as the accountId
+	User.findOne({ _id: belongsTo })
+		.populate("hotelIdsOwner") // Populate the hotelIdsOwner field
 		.exec((err, user) => {
 			if (err || !user) {
 				return res.status(400).json({

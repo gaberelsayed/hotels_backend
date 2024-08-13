@@ -17,9 +17,10 @@ const {
 	list,
 	listForAdmin,
 	updateHotelDetails,
+	getHotelDetails,
 } = require("../controllers/hotel_details");
 
-router.get("/hotel-details-single/:hotelDetailsId", read);
+router.get("/hotel-details/:hotelDetailsId", read); // Consolidated into a single route
 
 router.post(
 	"/hotel-details/create/:userId",
@@ -29,10 +30,15 @@ router.post(
 	create
 );
 
-router.get("/hotel-details/:accountId", list);
-router.get("/hotel-details-admin/:userId", isAdmin, listForAdmin);
+router.get("/hotel-details/account/:accountId", list); // Adjusted for clarity
+router.get(
+	"/hotel-details/admin/:userId",
+	requireSignin,
+	isAdmin,
+	listForAdmin
+); // Ensure requireSignin
 router.put(
-	"/hotel-details-update/:hotelId/:userId",
+	"/hotel-details/update/:hotelId/:userId",
 	requireSignin,
 	isAuth,
 	isHotelOwner,
