@@ -178,8 +178,7 @@ exports.propertySignup = async (req, res) => {
 				!hotelCountry ||
 				!hotelState ||
 				!hotelCity ||
-				!propertyType ||
-				hotelFloors === undefined
+				!propertyType
 			) {
 				return res.status(400).json({ error: "Please fill all the fields" });
 			}
@@ -231,8 +230,7 @@ exports.propertySignup = async (req, res) => {
 			!hotelCountry ||
 			!hotelState ||
 			!hotelCity ||
-			!propertyType ||
-			hotelFloors === undefined
+			!propertyType
 		) {
 			console.log("Missing fields:", {
 				name,
