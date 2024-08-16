@@ -35,12 +35,44 @@ exports.read = (req, res) => {
 	return res.json(req.hotelDetails);
 };
 
+const generateUniqueDarkColor = (existingColors) => {
+	let color;
+	do {
+		// Generate a random dark color
+		color = `#${Math.floor(Math.random() * 16777215)
+			.toString(16)
+			.padStart(6, "0")}`;
+	} while (
+		existingColors.includes(color) ||
+		!/^#([0-9A-F]{2}){3}$/i.test(color)
+	);
+	return color;
+};
+
 exports.updateHotelDetails = (req, res) => {
 	const hotelDetailsId = req.params.hotelId;
 	const updateData = req.body;
-	console.log("req.body      ", req.body);
+
+	const ensureUniqueRoomColors = (roomCountDetails) => {
+		const colorMap = {};
+
+		roomCountDetails.forEach((room) => {
+			if (!colorMap[room.roomType]) {
+				colorMap[room.roomType] = new Set();
+			}
+
+			// Check if roomColor already exists in the roomType group
+			if (colorMap[room.roomType].has(room.roomColor)) {
+				// Generate a new unique color
+				room.roomColor = generateUniqueDarkColor([...colorMap[room.roomType]]);
+			}
+
+			colorMap[room.roomType].add(room.roomColor);
+		});
+	};
 
 	if (req.body.fromPage === "AddNew") {
+		// Existing AddNew logic remains the same
 		HotelDetails.findById(hotelDetailsId, (err, hotelDetails) => {
 			if (err) {
 				console.error(err);
@@ -63,7 +95,6 @@ exports.updateHotelDetails = (req, res) => {
 						);
 
 						if (matchingNewRoom && Object.keys(matchingNewRoom).length > 0) {
-							// Update the existing room with the new details
 							return { ...existingRoom, ...matchingNewRoom };
 						}
 						return existingRoom;
@@ -88,8 +119,11 @@ exports.updateHotelDetails = (req, res) => {
 					}
 				});
 
+				// Ensure all room colors are unique within the same roomType
+				ensureUniqueRoomColors(updatedRoomCountDetails);
+
 				hotelDetails.roomCountDetails = updatedRoomCountDetails;
-				hotelDetails.markModified("roomCountDetails"); // Mark the array as modified
+				hotelDetails.markModified("roomCountDetails");
 			}
 
 			// Update other fields (excluding roomCountDetails)
@@ -108,9 +142,12 @@ exports.updateHotelDetails = (req, res) => {
 			});
 		});
 	} else {
+		console.log("Req.Body:", req.body);
+
+		// New logic to handle updates considering the _id
 		HotelDetails.findById(hotelDetailsId, (err, hotelDetails) => {
 			if (err) {
-				console.error(err);
+				console.error("Error finding hotel details:", err);
 				return res.status(500).send({ error: "Internal server error" });
 			}
 			if (!hotelDetails) {
@@ -125,12 +162,11 @@ exports.updateHotelDetails = (req, res) => {
 					(existingRoom) => {
 						const matchingNewRoom = updateData.roomCountDetails.find(
 							(newRoom) =>
-								newRoom.roomType === existingRoom.roomType &&
-								newRoom.displayName === existingRoom.displayName
+								newRoom._id.toString() === existingRoom._id.toString()
 						);
 
 						if (matchingNewRoom && Object.keys(matchingNewRoom).length > 0) {
-							// Update the existing room with the new details
+							console.log(`Updating room: ${existingRoom._id}`);
 							return { ...existingRoom, ...matchingNewRoom };
 						}
 						return existingRoom;
@@ -140,23 +176,21 @@ exports.updateHotelDetails = (req, res) => {
 				// Add new rooms that don't exist in the current list
 				updateData.roomCountDetails.forEach((newRoom) => {
 					if (
-						newRoom.roomType &&
-						newRoom.displayName &&
-						Object.keys(newRoom).length > 0
+						newRoom._id &&
+						!updatedRoomCountDetails.some(
+							(room) => room._id.toString() === newRoom._id.toString()
+						)
 					) {
-						const existingRoom = updatedRoomCountDetails.find(
-							(room) =>
-								room.roomType === newRoom.roomType &&
-								room.displayName === newRoom.displayName
-						);
-						if (!existingRoom) {
-							updatedRoomCountDetails.push(newRoom);
-						}
+						updatedRoomCountDetails.push(newRoom);
 					}
 				});
 
+				// Ensure all room colors are unique within the same roomType
+				ensureUniqueRoomColors(updatedRoomCountDetails);
+
+				// Assign the updated room count details
 				hotelDetails.roomCountDetails = updatedRoomCountDetails;
-				hotelDetails.markModified("roomCountDetails"); // Mark the array as modified
+				hotelDetails.markModified("roomCountDetails");
 			}
 
 			// Update other fields (excluding roomCountDetails)
@@ -168,9 +202,10 @@ exports.updateHotelDetails = (req, res) => {
 
 			hotelDetails.save((err, updatedHotelDetails) => {
 				if (err) {
-					console.error(err);
+					console.error("Error saving hotel details:", err);
 					return res.status(500).send({ error: "Internal server error" });
 				}
+				console.log("Hotel details updated successfully:", updatedHotelDetails);
 				res.json(updatedHotelDetails);
 			});
 		});
