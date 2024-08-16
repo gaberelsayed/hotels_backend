@@ -281,7 +281,7 @@ exports.propertySignup = async (req, res) => {
 			hotelState,
 			hotelCity,
 			propertyType,
-			hotelFloors: Number(hotelFloors), // Ensure hotelFloors is saved as a number
+			hotelFloors: hotelFloors ? Number(hotelFloors) : 1, // Ensure hotelFloors is saved as a number
 			phone: cleanedPhone,
 			belongsTo: user._id,
 		});
