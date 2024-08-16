@@ -63,7 +63,6 @@ const hotel_detailsSchema = new mongoose.Schema(
 					activeRoom: Boolean,
 				},
 			],
-			default: [{ activeRoom: true }],
 		},
 
 		hotelPhotos: {

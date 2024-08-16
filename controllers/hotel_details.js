@@ -114,6 +114,10 @@ exports.updateHotelDetails = (req, res) => {
 								room.displayName === newRoom.displayName
 						);
 						if (!existingRoom) {
+							// Ensure that activeRoom is set to true by default for new rooms
+							if (newRoom.activeRoom === undefined) {
+								newRoom.activeRoom = true;
+							}
 							updatedRoomCountDetails.push(newRoom);
 						}
 					}
