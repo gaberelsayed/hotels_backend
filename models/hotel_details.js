@@ -120,6 +120,7 @@ const hotel_detailsSchema = new mongoose.Schema(
 			lowercase: true,
 			default: "SAR",
 		},
+
 		location: {
 			type: {
 				type: String,
@@ -132,6 +133,12 @@ const hotel_detailsSchema = new mongoose.Schema(
 				required: true,
 				default: [0, 0], // Default to coordinates [longitude, latitude]
 			},
+		},
+		hotelRunnerToken: {
+			type: String, //Blank
+			trim: true,
+			lowercase: true,
+			default: "",
 		},
 		belongsTo: { type: ObjectId, ref: "User" },
 	},
