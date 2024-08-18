@@ -2,6 +2,8 @@ const Rooms = require("../models/rooms");
 const mongoose = require("mongoose");
 const fetch = require("node-fetch");
 const Reservations = require("../models/reservations");
+const HotelDetails = require("../models/hotel_details");
+const moment = require("moment");
 
 exports.roomById = (req, res, next, id) => {
 	Rooms.findById(id).exec((err, room) => {
@@ -362,68 +364,21 @@ exports.reservedRoomsSummary = async (req, res) => {
 			},
 			{ $unwind: "$pickedRoomsType" },
 			{
-				$addFields: {
-					simplifiedRoomType: {
-						$switch: {
-							branches: [
-								{
-									case: {
-										$regexMatch: {
-											input: { $toLower: "$pickedRoomsType.room_type" },
-											regex: "quadrooms|quadruple",
-										},
-									},
-									then: "quadRooms",
-								},
-								{
-									case: {
-										$regexMatch: {
-											input: { $toLower: "$pickedRoomsType.room_type" },
-											regex: "triplerooms|triple",
-										},
-									},
-									then: "tripleRooms",
-								},
-								{
-									case: {
-										$regexMatch: {
-											input: { $toLower: "$pickedRoomsType.room_type" },
-											regex: "doublerooms|double",
-										},
-									},
-									then: "doubleRooms",
-								},
-								{
-									case: {
-										$regexMatch: {
-											input: { $toLower: "$pickedRoomsType.room_type" },
-											regex: "suite",
-										},
-									},
-									then: "suite",
-								},
-								{
-									case: {
-										$regexMatch: {
-											input: { $toLower: "$pickedRoomsType.room_type" },
-											regex: "familyrooms|family",
-										},
-									},
-									then: "familyRooms",
-								},
-							],
-							default: "$pickedRoomsType.room_type",
-						},
-					},
-				},
-			},
-			{
 				$group: {
-					_id: "$simplifiedRoomType",
-					reserved: { $sum: 1 },
+					_id: {
+						roomType: "$pickedRoomsType.room_type",
+						displayName: "$pickedRoomsType.displayName",
+					},
+					reserved: { $sum: "$pickedRoomsType.count" },
 				},
 			},
 		]);
+
+		// Get hotel details for pricing information
+		const hotelDetails = await HotelDetails.findOne({
+			_id: accound_id,
+			belongsTo: belongsToId,
+		}).select("roomCountDetails");
 
 		const occupiedRooms = await Reservations.aggregate([
 			{
@@ -437,117 +392,62 @@ exports.reservedRoomsSummary = async (req, res) => {
 			},
 			{ $unwind: "$pickedRoomsType" },
 			{
-				$addFields: {
-					simplifiedRoomType: {
-						$switch: {
-							branches: [
-								{
-									case: {
-										$regexMatch: {
-											input: { $toLower: "$pickedRoomsType.room_type" },
-											regex: "quadrooms|quadruple",
-										},
-									},
-									then: "quadRooms",
-								},
-								{
-									case: {
-										$regexMatch: {
-											input: { $toLower: "$pickedRoomsType.room_type" },
-											regex: "triplerooms|triple",
-										},
-									},
-									then: "tripleRooms",
-								},
-								{
-									case: {
-										$regexMatch: {
-											input: { $toLower: "$pickedRoomsType.room_type" },
-											regex: "doublerooms|double",
-										},
-									},
-									then: "doubleRooms",
-								},
-								{
-									case: {
-										$regexMatch: {
-											input: { $toLower: "$pickedRoomsType.room_type" },
-											regex: "suite",
-										},
-									},
-									then: "suite",
-								},
-								{
-									case: {
-										$regexMatch: {
-											input: { $toLower: "$pickedRoomsType.room_type" },
-											regex: "familyrooms|family",
-										},
-									},
-									then: "familyRooms",
-								},
-							],
-							default: "$pickedRoomsType.room_type",
-						},
+				$group: {
+					_id: {
+						roomType: "$pickedRoomsType.room_type",
+						displayName: "$pickedRoomsType.displayName",
 					},
-				},
-			},
-			{
-				$group: {
-					_id: "$simplifiedRoomType",
-					occupied: { $sum: "$pickedRoomsType.count" }, // Summing the count of rooms
+					occupied: { $sum: "$pickedRoomsType.count" },
 				},
 			},
 		]);
 
-		// const debugRooms = await Reservations.aggregate([
-		// 	// ... Replicate your existing match, unwind, and addFields stages ...
-		// 	{
-		// 		$project: {
-		// 			simplifiedRoomType: 1,
-		// 			originalRoomType: "$pickedRoomsType.room_type",
-		// 		},
-		// 	},
-		// ]);
+		const totalRooms = hotelDetails.roomCountDetails.map((room) => {
+			const reservedRoom = reservedRooms.find(
+				(r) =>
+					r._id.roomType === room.roomType &&
+					r._id.displayName === room.displayName
+			) || { reserved: 0 };
+			const occupiedRoom = occupiedRooms.find(
+				(o) =>
+					o._id.roomType === room.roomType &&
+					o._id.displayName === room.displayName
+			) || { occupied: 0 };
 
-		// Get the total number of rooms from the Rooms schema
-		const totalRooms = await Rooms.aggregate([
-			{
-				$match: {
-					belongsTo: belongsToId,
-					hotelId: accound_id,
-				},
-			},
-			{
-				$group: {
-					_id: "$room_type",
-					total_available: { $sum: 1 },
-				},
-			},
-		]);
+			// Generate pricing by day
+			const startDate = moment(startdate);
+			const endDate = moment(enddate);
+			const pricingByDay = [];
+			for (
+				let date = startDate.clone();
+				date.isSameOrBefore(endDate);
+				date.add(1, "days")
+			) {
+				const dateString = date.format("YYYY-MM-DD");
+				const specificPricing = room.pricingRate.find(
+					(p) => p.calendarDate === dateString
+				);
+				const price = specificPricing
+					? specificPricing.price
+					: room.price.basePrice;
+				pricingByDay.push({ date: dateString, price });
+			}
 
-		console.log(occupiedRooms, "occupiedRooms");
-
-		// Merging reserved and occupied counts with total rooms
-		const summary = totalRooms.map((room) => {
-			const reservedRoom = reservedRooms.find((r) => r._id === room._id) || {
-				reserved: 0,
-			};
-			const occupiedRoom = occupiedRooms.find((r) => r._id === room._id) || {
-				occupied: 0,
-			};
 			return {
-				room_type: room._id,
-				total_available: room.total_available,
+				room_type: room.roomType,
+				displayName: room.displayName,
+				total_available: room.count,
 				reserved: reservedRoom.reserved,
 				occupied: occupiedRoom.occupied,
-				available:
-					room.total_available - reservedRoom.reserved - occupiedRoom.occupied,
+				available: room.count - reservedRoom.reserved - occupiedRoom.occupied,
 				start_date: startdate,
 				end_date: enddate,
+				pricingByDay, // Added pricing by day
+				roomColor: room.roomColor, // Added roomColor
 			};
 		});
-		res.json(summary);
+
+		res.json(totalRooms);
 	} catch (error) {
 		console.error("Error in reservedRoomsSummary:", error);
 		res.status(500).send("Error fetching reserved rooms summary");
