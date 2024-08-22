@@ -247,9 +247,10 @@ exports.getHotelDetails = (req, res) => {
 
 exports.listForAdmin = (req, res) => {
 	HotelDetails.find()
-		.populate("belongsTo", "name email") // Select only necessary fields
+		.populate("belongsTo", "_id name email") // Select only necessary fields
 		.exec((err, data) => {
 			if (err) {
+				console.log(err, "err");
 				return res.status(400).json({ error: err });
 			}
 			res.json(data);

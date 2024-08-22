@@ -49,13 +49,7 @@ const {
 	aggregateCollectedReservations,
 } = require("../controllers/reservations");
 
-router.post(
-	"/reservations/create/:userId/:hotelId",
-	requireSignin,
-	isAuth,
-	isHotelOwner,
-	create
-);
+router.post("/reservations/create/:userId/:hotelId", requireSignin, create);
 
 router.get(
 	"/reservations/list/:page/:records/:filters/:hotelId/:date",

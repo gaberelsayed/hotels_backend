@@ -264,3 +264,22 @@ exports.houseKeepingStaff = async (req, res) => {
 		});
 	}
 };
+
+exports.allHotelAccounts = (req, res) => {
+	User.find({ role: 2000 })
+		.select(
+			"_id name email role points activePoints likesUser activeUser employeeImage userRole history userStore userBranch hotelIdsOwner"
+		)
+		.populate(
+			"hotelIdsOwner",
+			"_id hotelName hotelCountry hotelState hotelCity hotelAddress"
+		)
+		.exec((err, users) => {
+			if (err) {
+				return res.status(400).json({
+					error: "Users not found",
+				});
+			}
+			res.json(users);
+		});
+};
