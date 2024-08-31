@@ -53,6 +53,8 @@ exports.updateHotelDetails = (req, res) => {
 	const hotelDetailsId = req.params.hotelId;
 	const updateData = req.body;
 
+	console.log(updateData, "updateData");
+
 	const ensureUniqueRoomColors = (roomCountDetails) => {
 		const colorMap = {};
 
@@ -255,4 +257,26 @@ exports.listForAdmin = (req, res) => {
 			}
 			res.json(data);
 		});
+};
+
+exports.listOfHotelUser = async (req, res) => {
+	try {
+		const { accountId } = req.params;
+
+		// Find all hotel details where the belongsTo field matches the accountId
+		const hotels = await HotelDetails.find({ belongsTo: accountId });
+
+		if (!hotels.length) {
+			return res.status(404).json({
+				message: "No hotels found for this user.",
+			});
+		}
+
+		res.status(200).json(hotels);
+	} catch (error) {
+		console.error("Error fetching hotels:", error);
+		res.status(500).json({
+			error: "An error occurred while fetching the hotels.",
+		});
+	}
 };

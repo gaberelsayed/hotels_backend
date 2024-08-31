@@ -17,6 +17,7 @@ const {
 	list,
 	listForAdmin,
 	updateHotelDetails,
+	listOfHotelUser,
 } = require("../controllers/hotel_details");
 
 router.get("/hotel-details/:hotelDetailsId", read); // Consolidated into a single route
@@ -30,6 +31,7 @@ router.post(
 );
 
 router.get("/hotel-details/account/:accountId", list); // Adjusted for clarity
+router.get("/hotel-details/super-admin/:accountId", listOfHotelUser);
 router.get(
 	"/hotel-details/admin/:userId",
 	requireSignin,
