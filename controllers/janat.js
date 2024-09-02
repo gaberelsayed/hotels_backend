@@ -1,4 +1,5 @@
 const Janat = require("../models/janat");
+const HotelDetails = require("../models/hotel_details");
 const mongoose = require("mongoose");
 
 exports.createUpdateDocument = (req, res) => {
@@ -57,4 +58,74 @@ exports.list = (req, res) => {
 		}
 		res.json(documents);
 	});
+};
+
+exports.listOfAllActiveHotels = async (req, res) => {
+	try {
+		const activeHotels = await HotelDetails.find({
+			activateHotel: true,
+			hotelPhotos: { $exists: true, $not: { $size: 0 } },
+			"location.coordinates": { $ne: [0, 0] },
+			roomCountDetails: {
+				$elemMatch: {
+					"price.basePrice": { $gt: 0 },
+					photos: { $exists: true, $not: { $size: 0 } },
+				},
+			},
+		});
+
+		res.json(activeHotels);
+	} catch (err) {
+		console.error(err);
+		res
+			.status(500)
+			.json({ error: "An error occurred while fetching active hotels." });
+	}
+};
+
+exports.distinctRoomTypes = async (req, res) => {
+	try {
+		const activeHotels = await HotelDetails.find({
+			activateHotel: true,
+			hotelPhotos: { $exists: true, $not: { $size: 0 } },
+			"location.coordinates": { $ne: [0, 0] },
+			roomCountDetails: {
+				$elemMatch: {
+					"price.basePrice": { $gt: 0 },
+					photos: { $exists: true, $not: { $size: 0 } },
+				},
+			},
+		});
+
+		// Extract distinct room types, display names, and _id
+		let roomTypes = [];
+		activeHotels.forEach((hotel) => {
+			hotel.roomCountDetails.forEach((room) => {
+				if (room.price.basePrice > 0 && room.photos.length > 1) {
+					roomTypes.push({
+						roomType: room.roomType,
+						displayName: room.displayName,
+						_id: room._id,
+					});
+				}
+			});
+		});
+
+		// Remove duplicates
+		roomTypes = roomTypes.filter(
+			(value, index, self) =>
+				index ===
+				self.findIndex(
+					(t) =>
+						t.roomType === value.roomType && t.displayName === value.displayName
+				)
+		);
+
+		res.json(roomTypes);
+	} catch (err) {
+		console.error(err);
+		res
+			.status(500)
+			.json({ error: "An error occurred while fetching distinct room types." });
+	}
 };

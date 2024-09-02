@@ -65,6 +65,36 @@ const janatSchema = new mongoose.Schema(
 				url: "",
 			},
 		},
+
+		termsAndConditionEnglish: {
+			type: String,
+			trim: true,
+		},
+
+		termsAndConditionArabic: {
+			type: String,
+			trim: true,
+		},
+
+		aboutUsEnglish: {
+			type: String,
+			trim: true,
+		},
+
+		aboutUsArabic: {
+			type: String,
+			trim: true,
+		},
+
+		middleSectionEnglish: {
+			type: String,
+			trim: true,
+		},
+
+		middleSectionArabic: {
+			type: String,
+			trim: true,
+		},
 	},
 	{ timestamps: true }
 );
