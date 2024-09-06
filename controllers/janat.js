@@ -129,3 +129,29 @@ exports.distinctRoomTypes = async (req, res) => {
 			.json({ error: "An error occurred while fetching distinct room types." });
 	}
 };
+
+exports.getHotelFromSlug = async (req, res) => {
+	try {
+		const { hotelSlug } = req.params;
+
+		// Find the hotel where hotelName (with spaces replaced by '-') matches hotelSlug
+		const hotel = await HotelDetails.findOne({
+			hotelName: {
+				$regex: new RegExp(`^${hotelSlug.replace(/-/g, " ")}$`, "i"),
+			},
+		});
+
+		if (!hotel) {
+			return res.status(404).json({
+				message: "No hotel found for the provided slug.",
+			});
+		}
+
+		res.status(200).json(hotel);
+	} catch (error) {
+		console.error("Error fetching hotel by slug:", error);
+		res.status(500).json({
+			error: "An error occurred while fetching the hotel.",
+		});
+	}
+};
