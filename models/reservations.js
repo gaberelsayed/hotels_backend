@@ -72,6 +72,14 @@ const reservationsSchema = new mongoose.Schema(
 			type: Number, //use the mapping
 			default: 1,
 		},
+		adults: {
+			type: Number, //use the mapping
+			default: 1,
+		},
+		children: {
+			type: Number, //use the mapping
+			default: 0,
+		},
 		pickedRoomsPricing: {
 			type: Array, //This will be discussed later
 			default: [],

@@ -155,3 +155,30 @@ exports.getHotelFromSlug = async (req, res) => {
 		});
 	}
 };
+
+exports.getListOfHotels = async (req, res) => {
+	try {
+		// Find all hotels where:
+		// 1. hotelPhotos exist and is not empty
+		// 2. activateHotel is true
+		// 3. location coordinates are not [0, 0]
+		const hotels = await HotelDetails.find({
+			hotelPhotos: { $exists: true, $not: { $size: 0 } },
+			activateHotel: true,
+			"location.coordinates": { $ne: [0, 0] },
+		});
+
+		if (!hotels.length) {
+			return res.status(404).json({
+				message: "No hotels found with the specified criteria.",
+			});
+		}
+
+		res.status(200).json(hotels);
+	} catch (error) {
+		console.error("Error fetching hotels:", error);
+		res.status(500).json({
+			error: "An error occurred while fetching hotels.",
+		});
+	}
+};
