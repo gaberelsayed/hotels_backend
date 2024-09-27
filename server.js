@@ -87,6 +87,18 @@ io.on("connection", (socket) => {
 		io.emit("stopTyping", data);
 	});
 
+	socket.on("newChat", (data) => {
+		// Emit the new chat with relevant data to filter on the frontend
+		io.emit("newChat", {
+			_id: data._id,
+			caseStatus: data.caseStatus,
+			openedBy: data.openedBy, // Include openedBy to filter on the frontend
+			hotelId: data.hotelId,
+			conversation: data.conversation,
+			// ...otherData, // Any other data you need
+		});
+	});
+
 	socket.on("disconnect", (reason) => {
 		console.log(`A user disconnected: ${reason}`);
 	});

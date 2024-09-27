@@ -17,11 +17,19 @@ router.post(
 
 router.get("/support-cases/active", supportCaseController.getOpenSupportCases);
 router.get(
+	"/support-cases-clients/active",
+	supportCaseController.getOpenSupportCasesClients
+);
+router.get(
 	"/support-cases-hotels/active/:hotelId",
 	supportCaseController.getOpenSupportCasesForHotel
 );
 
 router.get("/support-cases/closed", supportCaseController.getCloseSupportCases);
+router.get(
+	"/support-cases/closed/clients",
+	supportCaseController.getCloseSupportCasesClients
+);
 router.get(
 	"/support-cases-hotels/closed/:hotelId",
 	supportCaseController.getCloseSupportCasesForHotel

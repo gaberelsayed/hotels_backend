@@ -9,40 +9,6 @@ const orderStatusSMS = twilio(
 	process.env.TWILIO_AUTH_TOKEN
 );
 
-// Create a new support case
-exports.createSupportCase = async (req, res) => {
-	try {
-		const { customerId, ownerId, supporterId, inquiryAbout, inquiryDetails } =
-			req.body;
-
-		const newCase = new SupportCase({
-			conversation: [
-				{
-					messageBy: customerId,
-					message: "New support case created",
-					inquiryAbout,
-					inquiryDetails,
-				},
-			],
-			participants: [
-				{ user: customerId, role: "Client" },
-				{ user: ownerId, role: "HotelOwner" },
-				{ user: supporterId, role: "SuperAdmin" }, // Add if needed
-			],
-			supporterId: supporterId,
-		});
-
-		await newCase.save();
-
-		// Emit new chat event
-		req.io.emit("newChat", newCase);
-
-		res.status(201).json(newCase);
-	} catch (error) {
-		res.status(400).json({ error: error.message });
-	}
-};
-
 // Get all support cases
 exports.getSupportCases = async (req, res) => {
 	try {
@@ -73,9 +39,10 @@ exports.getSupportCases = async (req, res) => {
 // Get a specific support case by ID
 exports.getSupportCaseById = async (req, res) => {
 	try {
+		// Find the support case by ID without attempting to populate 'messageBy'
 		const supportCase = await SupportCase.findById(req.params.id)
-			.populate("supporterId")
-			.populate("conversation.messageBy");
+			.populate("supporterId") // Only populate fields that reference another model
+			.populate("hotelId");
 
 		if (!supportCase) {
 			console.log("Support case not found:", req.params.id);
@@ -166,7 +133,6 @@ exports.createNewSupportCase = async (req, res) => {
 			!inquiryDetails ||
 			!supporterId ||
 			!ownerId ||
-			!role ||
 			!displayName1 || // Ensure displayName1 is provided
 			!displayName2 // Ensure displayName2 is provided
 		) {
@@ -192,9 +158,14 @@ exports.createNewSupportCase = async (req, res) => {
 							? ownerId
 							: customerEmail,
 				},
-				message: `New support case created by ${
-					openedBy === "super admin" ? "Xhotelpro Adminstration" : openedBy
-				}`,
+				message:
+					openedBy === "client"
+						? "A representative will be with you in 3 to 5 minutes"
+						: `New support case created by ${
+								openedBy === "super admin"
+									? "Xhotelpro Adminstration"
+									: openedBy
+						  }`,
 				inquiryAbout,
 				inquiryDetails,
 				seenByAdmin: role === 1000,
@@ -245,34 +216,6 @@ exports.getUnassignedSupportCasesCount = async (req, res) => {
 	}
 };
 
-exports.getUnseenMessagesCountByAdmin = async (req, res) => {
-	try {
-		const { userId } = req.query;
-
-		console.log("Received userId:", userId);
-
-		// Count the unseen messages where the userId in messageBy does not match the current user
-		const count = await SupportCase.aggregate([
-			{ $unwind: "$conversation" },
-			{
-				$match: {
-					"conversation.seenByAdmin": false,
-					"conversation.messageBy.userId": { $ne: userId },
-				},
-			},
-			{ $count: "unseenCount" },
-		]);
-
-		console.log("Unseen messages count:", count);
-
-		const unseenCount = count.length > 0 ? count[0].unseenCount : 0;
-		res.status(200).json({ count: unseenCount });
-	} catch (error) {
-		console.error("Error fetching unseen messages count:", error);
-		res.status(400).json({ error: error.message });
-	}
-};
-
 exports.getOpenSupportCases = async (req, res) => {
 	try {
 		const cases = await SupportCase.find({
@@ -311,6 +254,20 @@ exports.getOpenSupportCasesForHotel = async (req, res) => {
 		res.status(200).json(cases);
 	} catch (error) {
 		// Handle any errors that occur during the query
+		res.status(400).json({ error: error.message });
+	}
+};
+
+exports.getOpenSupportCasesClients = async (req, res) => {
+	try {
+		const cases = await SupportCase.find({
+			caseStatus: "open",
+			openedBy: { $in: ["client"] }, // Client-related cases only
+		})
+			.populate("supporterId")
+			.populate("hotelId");
+		res.status(200).json(cases);
+	} catch (error) {
 		res.status(400).json({ error: error.message });
 	}
 };
@@ -356,12 +313,26 @@ exports.getCloseSupportCasesForHotel = async (req, res) => {
 	}
 };
 
+exports.getCloseSupportCasesClients = async (req, res) => {
+	try {
+		const cases = await SupportCase.find({
+			caseStatus: "closed",
+			openedBy: { $in: ["client"] }, // Adjusting for case sensitivity
+		})
+			.populate("supporterId")
+			.populate("hotelId");
+
+		res.status(200).json(cases);
+	} catch (error) {
+		res.status(400).json({ error: error.message });
+	}
+};
+
 //New seen and unseen logic
 
 exports.getUnseenMessagesCountByAdmin = async (req, res) => {
 	try {
 		const { userId } = req.query;
-
 		console.log("Received userId:", userId);
 
 		// Count the unseen messages where the userId in messageBy does not match the current user
@@ -370,13 +341,13 @@ exports.getUnseenMessagesCountByAdmin = async (req, res) => {
 			{
 				$match: {
 					"conversation.seenByAdmin": false,
-					"conversation.messageBy.userId": { $ne: userId },
+					"conversation.messageBy.userId": { $ne: userId }, // Ensure messages sent by others are included
 				},
 			},
 			{ $count: "unseenCount" },
 		]);
 
-		console.log("Unseen messages count:", count); // Log the count array
+		console.log("Unseen messages count:", count);
 
 		const unseenCount = count.length > 0 ? count[0].unseenCount : 0;
 		res.status(200).json({ count: unseenCount });
@@ -501,44 +472,37 @@ exports.updateSeenStatusForClient = async (req, res) => {
 // Mark all messages as seen by Super Admin
 exports.markAllMessagesAsSeenByAdmin = async (req, res) => {
 	try {
-		const { id } = req.params;
-		const { userId } = req.body;
+		const { id } = req.params; // id refers to the support case ID
+		const { userId } = req.body; // userId is the admin's ID
 
-		// Attempt the update
+		// Update the conversation messages that are not seen by the admin
 		const result = await SupportCase.updateOne(
-			{ _id: ObjectId(id) },
-			{ $set: { "conversation.$[elem].seenByAdmin": true } },
+			{ _id: ObjectId(id), "conversation.seenByAdmin": false }, // Match only unseen messages
+			{ $set: { "conversation.$[elem].seenByAdmin": true } }, // Mark them as seen
 			{
 				arrayFilters: [
 					{
-						"elem.messageBy.userId": { $exists: true, $ne: ObjectId(userId) },
+						"elem.messageBy.userId": { $ne: ObjectId(userId) }, // Exclude the admin's own messages
+						"elem.seenByAdmin": false, // Only update if not seen by admin yet
 					},
 				],
 			}
 		);
 
-		// Log the update result
-		// console.log("Update Result:", result);
-
-		// Log the document again to see if the update worked
-		const documentAfterUpdate = await SupportCase.findOne({
-			_id: ObjectId(id),
-		});
-		// console.log(
-		// 	"Document After Update:",
-		// 	JSON.stringify(documentAfterUpdate, null, 2)
-		// );
-
+		// If no messages were updated, return a 404 response
 		if (result.matchedCount === 0) {
 			return res
 				.status(404)
-				.json({ error: "Support case not found or already updated" });
+				.json({ error: "No unseen messages found or already updated" });
 		}
 
-		res
-			.status(200)
-			.json({ message: "All relevant messages marked as seen by Admin" });
+		// Emit the real-time socket event to the specific room (support case ID)
+		req.app.get("io").to(id).emit("messageSeen", { caseId: id, userId });
+
+		// Return success response
+		res.status(200).json({ message: "All messages marked as seen by Admin" });
 	} catch (error) {
+		// Handle and log any errors
 		console.error("Error:", error);
 		res.status(400).json({ error: error.message });
 	}
