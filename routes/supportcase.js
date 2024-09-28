@@ -35,6 +35,11 @@ router.get(
 	supportCaseController.getCloseSupportCasesForHotel
 );
 
+router.get(
+	"/support-cases-hotels-clients/closed/:hotelId",
+	supportCaseController.getCloseSupportCasesForHotelClients
+);
+
 // Get a specific support case by ID
 router.get("/support-cases/:id", supportCaseController.getSupportCaseById);
 

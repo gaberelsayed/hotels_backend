@@ -313,6 +313,32 @@ exports.getCloseSupportCasesForHotel = async (req, res) => {
 	}
 };
 
+exports.getCloseSupportCasesForHotelClients = async (req, res) => {
+	try {
+		const { hotelId } = req.params;
+
+		// Validate that hotelId is a valid ObjectId
+		if (!mongoose.Types.ObjectId.isValid(hotelId)) {
+			return res.status(400).json({ error: "Invalid hotel ID" });
+		}
+
+		// Find open support cases for the specified hotel
+		const cases = await SupportCase.find({
+			caseStatus: "closed",
+			openedBy: { $in: ["client"] }, // Adjusting for case sensitivity
+			hotelId: mongoose.Types.ObjectId(hotelId), // Ensure hotelId is treated as ObjectId
+		})
+			.populate("supporterId")
+			.populate("hotelId");
+
+		// Return the cases in the response
+		res.status(200).json(cases);
+	} catch (error) {
+		// Handle any errors that occur during the query
+		res.status(400).json({ error: error.message });
+	}
+};
+
 exports.getCloseSupportCasesClients = async (req, res) => {
 	try {
 		const cases = await SupportCase.find({
