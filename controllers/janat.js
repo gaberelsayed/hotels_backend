@@ -134,10 +134,15 @@ exports.getHotelFromSlug = async (req, res) => {
 	try {
 		const { hotelSlug } = req.params;
 
+		// Escape special characters in the slug for regex matching
+		const escapedSlug = hotelSlug
+			.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")
+			.replace(/-/g, " ");
+
 		// Find the hotel where hotelName (with spaces replaced by '-') matches hotelSlug
 		const hotel = await HotelDetails.findOne({
 			hotelName: {
-				$regex: new RegExp(`^${hotelSlug.replace(/-/g, " ")}$`, "i"),
+				$regex: new RegExp(`^${escapedSlug}$`, "i"),
 			},
 		});
 

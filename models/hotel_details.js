@@ -11,6 +11,12 @@ const hotel_detailsSchema = new mongoose.Schema(
 			lowercase: true,
 			required: true,
 		},
+		hotelName_OtherLanguage: {
+			type: String,
+			trim: true,
+			lowercase: true,
+			default: "",
+		},
 		hotelCountry: {
 			type: String,
 			trim: true,
@@ -56,7 +62,9 @@ const hotel_detailsSchema = new mongoose.Schema(
 					price: { basePrice: Number },
 					photos: Array,
 					displayName: String,
+					displayName_OtherLanguage: String,
 					description: String,
+					description_OtherLanguage: String,
 					amenities: Array,
 					views: Array,
 					extraAmenities: Array,
