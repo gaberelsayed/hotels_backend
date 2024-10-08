@@ -72,6 +72,7 @@ const hotel_detailsSchema = new mongoose.Schema(
 					pricingRate: Array,
 					roomColor: String,
 					activeRoom: Boolean,
+					commisionIncluded: Boolean,
 					refundPolicyDays: Number,
 				},
 			],
