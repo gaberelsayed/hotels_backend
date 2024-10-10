@@ -187,3 +187,68 @@ exports.getListOfHotels = async (req, res) => {
 		});
 	}
 };
+
+exports.gettingRoomListFromQuery = async (req, res) => {
+	try {
+		const { query } = req.params;
+
+		// Extract parameters from the query string
+		// Assuming the query format is: startDate_endDate_roomType_adults_children
+		const [startDate, endDate, roomType, adults, children] = query.split("_");
+
+		// Validate the extracted parameters
+		if (!startDate || !endDate || !roomType || !adults) {
+			return res.status(400).json({
+				error: "Invalid query parameters.",
+			});
+		}
+
+		// Find all hotels where:
+		// 1. hotelPhotos exist and is not empty.
+		// 2. activateHotel is true.
+		// 3. location coordinates are not [0, 0].
+		const hotels = await HotelDetails.find({
+			activateHotel: true,
+			hotelPhotos: { $exists: true, $not: { $size: 0 } },
+			"location.coordinates": { $ne: [0, 0] },
+			"roomCountDetails.roomType": roomType, // Ensure that at least one room of the specified type exists.
+		});
+		// .select(
+		// 	"hotelName hotelPhotos hotelCountry hotelState hotelCity location roomCountDetails"
+		// )
+		// Filter out only the relevant room types in roomCountDetails
+		const filteredHotels = hotels.map((hotel) => {
+			const filteredRoomCountDetails = hotel.roomCountDetails.filter(
+				(room) =>
+					room.roomType === roomType &&
+					room.photos.length > 0 &&
+					room.price.basePrice > 0
+			);
+
+			return {
+				...hotel.toObject(),
+				roomCountDetails: filteredRoomCountDetails,
+			};
+		});
+
+		// Remove hotels that have no matching roomCountDetails after filtering
+		const result = filteredHotels.filter(
+			(hotel) => hotel.roomCountDetails.length > 0
+		);
+
+		// If no hotels match the criteria, return a 404
+		if (!result.length) {
+			return res.status(404).json({
+				message: "No hotels found matching the criteria.",
+			});
+		}
+
+		// Send the filtered hotels as the response
+		res.status(200).json(result);
+	} catch (error) {
+		console.error("Error fetching hotels:", error);
+		res.status(500).json({
+			error: "An error occurred while fetching rooms.",
+		});
+	}
+};
