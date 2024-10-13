@@ -207,23 +207,43 @@ exports.gettingRoomListFromQuery = async (req, res) => {
 		// 1. hotelPhotos exist and is not empty.
 		// 2. activateHotel is true.
 		// 3. location coordinates are not [0, 0].
-		const hotels = await HotelDetails.find({
-			activateHotel: true,
-			hotelPhotos: { $exists: true, $not: { $size: 0 } },
-			"location.coordinates": { $ne: [0, 0] },
-			"roomCountDetails.roomType": roomType, // Ensure that at least one room of the specified type exists.
-		});
-		// .select(
-		// 	"hotelName hotelPhotos hotelCountry hotelState hotelCity location roomCountDetails"
-		// )
+		let hotels;
+
+		// If roomType is "all", don't filter by room type
+		if (roomType === "all") {
+			hotels = await HotelDetails.find({
+				activateHotel: true,
+				hotelPhotos: { $exists: true, $not: { $size: 0 } },
+				"location.coordinates": { $ne: [0, 0] },
+			});
+		} else {
+			// Filter by the specified room type
+			hotels = await HotelDetails.find({
+				activateHotel: true,
+				hotelPhotos: { $exists: true, $not: { $size: 0 } },
+				"location.coordinates": { $ne: [0, 0] },
+				"roomCountDetails.roomType": roomType, // Ensure that at least one room of the specified type exists.
+			});
+		}
+
 		// Filter out only the relevant room types in roomCountDetails
 		const filteredHotels = hotels.map((hotel) => {
-			const filteredRoomCountDetails = hotel.roomCountDetails.filter(
-				(room) =>
-					room.roomType === roomType &&
-					room.photos.length > 0 &&
-					room.price.basePrice > 0
-			);
+			let filteredRoomCountDetails;
+
+			if (roomType === "all") {
+				// For "all", return all rooms that have photos and a base price greater than 0
+				filteredRoomCountDetails = hotel.roomCountDetails.filter(
+					(room) => room.photos.length > 0 && room.price.basePrice > 0
+				);
+			} else {
+				// Otherwise, filter by the specific room type
+				filteredRoomCountDetails = hotel.roomCountDetails.filter(
+					(room) =>
+						room.roomType === roomType &&
+						room.photos.length > 0 &&
+						room.price.basePrice > 0
+				);
+			}
 
 			return {
 				...hotel.toObject(),
