@@ -49,6 +49,10 @@ const reservationsSchema = new mongoose.Schema(
 				passportExpiry: "",
 				nationality: "", //country
 				copyNumber: "",
+				cardNumber: "", // Should be hashed, no access to anyone for security
+				cardExpiryDate: "", // Should be hashed, no access to anyone for security
+				cardCVV: "", // Should be hashed, no access to anyone for security
+				cardHolderName: "", // Should be hashed, no access to anyone for security
 				hasCar: "no",
 				carLicensePlate: "",
 				carColor: "",

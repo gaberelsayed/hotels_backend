@@ -12,6 +12,7 @@ const {
 	getHotelFromSlug,
 	getListOfHotels,
 	gettingRoomListFromQuery,
+	createNewReservationClient,
 } = require("../controllers/janat");
 
 router.post("/janat-website/:documentId", createUpdateDocument);
@@ -21,6 +22,7 @@ router.get("/single-hotel/:hotelSlug", getHotelFromSlug);
 router.get("/active-hotel-list", getListOfHotels);
 router.get("/distinct-rooms", distinctRoomTypes);
 router.get("/room-query-list/:query", gettingRoomListFromQuery);
+router.post("/new-reservation-client", createNewReservationClient);
 
 router.param("userId", userById);
 

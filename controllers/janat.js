@@ -1,6 +1,8 @@
 const Janat = require("../models/janat");
 const HotelDetails = require("../models/hotel_details");
 const mongoose = require("mongoose");
+const Reservations = require("../models/reservations"); // Assuming this is your reservations model
+const crypto = require("crypto"); // For hashing or encrypting card details
 
 exports.createUpdateDocument = (req, res) => {
 	const { documentId } = req.params;
@@ -272,3 +274,193 @@ exports.gettingRoomListFromQuery = async (req, res) => {
 		});
 	}
 };
+
+// Helper functions for generating and ensuring unique confirmation_number
+function generateRandomNumber() {
+	let randomNumber = Math.floor(1000000000 + Math.random() * 9000000000); // Generates a 10-digit number
+	return randomNumber.toString();
+}
+
+function ensureUniqueNumber(model, fieldName, callback) {
+	const randomNumber = generateRandomNumber();
+	let query = {};
+	query[fieldName] = randomNumber;
+
+	model.findOne(query, (err, doc) => {
+		if (err) {
+			callback(err);
+		} else if (doc) {
+			// If number already exists, generate a new one
+			ensureUniqueNumber(model, fieldName, callback);
+		} else {
+			callback(null, randomNumber); // Return unique number
+		}
+	});
+}
+
+exports.createNewReservationClient = async (req, res) => {
+	try {
+		const { hotelId, customerDetails, paymentDetails, belongsTo } = req.body;
+		console.log(req.body, "req.bodyreq.bodyreq.body");
+		// Validate hotelId
+		const hotel = await HotelDetails.findOne({
+			_id: hotelId,
+			activateHotel: true,
+			hotelPhotos: { $exists: true, $not: { $size: 0 } },
+			"location.coordinates": { $ne: [0, 0] },
+		});
+
+		// Check if hotel exists and is active
+		if (!hotel) {
+			return res.status(400).json({
+				message:
+					"Error occurred, please contact Jannat Booking Customer Support In The Chat",
+			});
+		}
+
+		// Validate customer details
+		const { name, phone, email, passport, passportExpiry, nationality } =
+			customerDetails;
+		if (
+			!name ||
+			!phone ||
+			!email ||
+			!passport ||
+			!passportExpiry ||
+			!nationality
+		) {
+			return res.status(400).json({
+				message: "Invalid customer details provided.",
+			});
+		}
+
+		// Validate and hash/encrypt card details
+		const { cardNumber, cardExpiryDate, cardCVV, cardHolderName } =
+			paymentDetails;
+		if (!cardNumber || !cardExpiryDate || !cardCVV || !cardHolderName) {
+			return res.status(400).json({
+				message: "Invalid payment details provided.",
+			});
+		}
+
+		// Hash the card details (you can choose to encrypt them instead)
+		const hashCardNumber = crypto
+			.createHash("sha256")
+			.update(cardNumber)
+			.digest("hex");
+		const hashCardExpiryDate = crypto
+			.createHash("sha256")
+			.update(cardExpiryDate)
+			.digest("hex");
+		const hashCardCVV = crypto
+			.createHash("sha256")
+			.update(cardCVV)
+			.digest("hex");
+		const hashCardHolderName = crypto
+			.createHash("sha256")
+			.update(cardHolderName)
+			.digest("hex");
+
+		// Generate a unique confirmation_number if not already provided
+		if (!req.body.confirmation_number) {
+			ensureUniqueNumber(
+				Reservations,
+				"confirmation_number",
+				async (err, uniqueNumber) => {
+					if (err) {
+						return res
+							.status(500)
+							.json({ message: "Error generating confirmation number." });
+					}
+					req.body.confirmation_number = uniqueNumber;
+
+					// Call function to save the reservation
+					await saveReservation(
+						req,
+						res,
+						hotelId,
+						customerDetails,
+						paymentDetails,
+						belongsTo
+					);
+				}
+			);
+		} else {
+			// If confirmation_number is provided, just save the reservation
+			await saveReservation(
+				req,
+				res,
+				hotelId,
+				customerDetails,
+				paymentDetails,
+				belongsTo
+			);
+		}
+	} catch (error) {
+		console.error("Error creating reservation:", error);
+		res.status(500).json({
+			message: "An error occurred while creating the reservation",
+		});
+	}
+};
+
+// Helper function to save the reservation
+async function saveReservation(
+	req,
+	res,
+	hotelId,
+	customerDetails,
+	paymentDetails,
+	belongsTo
+) {
+	// Create the new reservation
+	const newReservation = new Reservations({
+		hotelId,
+		customer_details: {
+			...customerDetails,
+			cardNumber: crypto
+				.createHash("sha256")
+				.update(paymentDetails.cardNumber)
+				.digest("hex"),
+			cardExpiryDate: crypto
+				.createHash("sha256")
+				.update(paymentDetails.cardExpiryDate)
+				.digest("hex"),
+			cardCVV: crypto
+				.createHash("sha256")
+				.update(paymentDetails.cardCVV)
+				.digest("hex"),
+			cardHolderName: crypto
+				.createHash("sha256")
+				.update(paymentDetails.cardHolderName)
+				.digest("hex"),
+		},
+		confirmation_number: req.body.confirmation_number,
+		belongsTo, // Ensure this is correctly populated
+		checkin_date: req.body.checkin_date,
+		checkout_date: req.body.checkout_date,
+		days_of_residence: req.body.days_of_residence,
+		total_rooms: req.body.total_rooms,
+		total_guests: req.body.total_guests,
+		adults: req.body.adults,
+		children: req.body.children,
+		total_amount: req.body.total_amount,
+		booking_source: req.body.booking_source,
+		pickedRoomsType: req.body.pickedRoomsType, // Ensure rooms are correctly saved
+		payment: req.body.payment, // Ensure payment status is saved
+	});
+
+	// Save the reservation to the database
+	try {
+		const savedReservation = await newReservation.save();
+		res.status(201).json({
+			message: "Reservation created successfully",
+			data: savedReservation,
+		});
+	} catch (error) {
+		console.error("Error saving reservation:", error);
+		res.status(500).json({
+			message: "An error occurred while saving the reservation",
+		});
+	}
+}
