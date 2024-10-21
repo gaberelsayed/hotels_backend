@@ -24,14 +24,38 @@ exports.create = async (req, res) => {
 	const roomsArray = Array.isArray(rooms) ? rooms : [rooms];
 
 	try {
+		// Fetch the hotel details from the HotelDetails collection using the passed hotelId
+		const hotelId = roomsArray[0]?.hotelId; // Assuming all rooms belong to the same hotelId
+
+		if (!hotelId) {
+			return res.status(400).json({ error: "Hotel ID is missing." });
+		}
+
+		const hotelDetails = await HotelDetails.findById(hotelId).select(
+			"belongsTo"
+		);
+
+		if (!hotelDetails) {
+			return res.status(404).json({ error: "Hotel not found." });
+		}
+
+		// Extract the belongsTo field from the fetched hotel details
+		const belongsTo = hotelDetails.belongsTo;
+
+		// Map rooms array to include the belongsTo field from the hotel details
 		const bulkOps = roomsArray.map((room) => {
-			const { room_number, hotelId } = room;
+			const { room_number } = room;
 
 			const condition = {
 				room_number,
 				hotelId: mongoose.Types.ObjectId(hotelId),
 			};
-			const update = room;
+
+			// Ensure belongsTo is added to the room data
+			const update = {
+				...room,
+				belongsTo: mongoose.Types.ObjectId(belongsTo), // Add belongsTo from the fetched hotel details
+			};
 
 			return {
 				updateOne: {
