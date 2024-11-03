@@ -12,6 +12,7 @@ const janatSchema = new mongoose.Schema(
 				url: "",
 			},
 		},
+
 		homeMainBanners: {
 			type: Array,
 			trim: true,
@@ -22,6 +23,7 @@ const janatSchema = new mongoose.Schema(
 				},
 			],
 		},
+
 		homeSecondBanner: {
 			type: Object,
 			trim: true,
@@ -30,6 +32,7 @@ const janatSchema = new mongoose.Schema(
 				url: "",
 			},
 		},
+
 		contactUsBanner: {
 			type: Object,
 			trim: true,
