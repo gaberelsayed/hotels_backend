@@ -195,8 +195,9 @@ exports.gettingRoomListFromQuery = async (req, res) => {
 		const { query } = req.params;
 
 		// Extract parameters from the query string
-		// Assuming the query format is: startDate_endDate_roomType_adults_children
-		const [startDate, endDate, roomType, adults, children] = query.split("_");
+		// Assuming the query format is: startDate_endDate_roomType_adults_children_destination
+		const [startDate, endDate, roomType, adults, children, destination] =
+			query.split("_");
 
 		// Validate the extracted parameters
 		if (!startDate || !endDate || !roomType || !adults) {
@@ -205,28 +206,36 @@ exports.gettingRoomListFromQuery = async (req, res) => {
 			});
 		}
 
-		// Find all hotels where:
-		// 1. hotelPhotos exist and is not empty.
-		// 2. activateHotel is true.
-		// 3. location coordinates are not [0, 0].
-		let hotels;
+		// Standardize certain destination names to handle variations
+		const standardizedDestination = destination
+			? destination.toLowerCase().replace(/madina[h]?/i, "madina")
+			: null;
+
+		// Define base hotel query to fetch only hotels that:
+		// 1. Have hotelPhotos and is not empty.
+		// 2. Are active (activateHotel is true).
+		// 3. Have valid location coordinates (not [0, 0]).
+		let hotelQuery = {
+			activateHotel: true,
+			hotelPhotos: { $exists: true, $not: { $size: 0 } },
+			"location.coordinates": { $ne: [0, 0] },
+		};
+
+		// If destination is provided, add a case-insensitive, partial match on hotelState
+		if (standardizedDestination) {
+			hotelQuery.hotelState = {
+				$regex: new RegExp(standardizedDestination, "i"),
+			};
+		}
 
 		// If roomType is "all", don't filter by room type
-		if (roomType === "all") {
-			hotels = await HotelDetails.find({
-				activateHotel: true,
-				hotelPhotos: { $exists: true, $not: { $size: 0 } },
-				"location.coordinates": { $ne: [0, 0] },
-			});
-		} else {
-			// Filter by the specified room type
-			hotels = await HotelDetails.find({
-				activateHotel: true,
-				hotelPhotos: { $exists: true, $not: { $size: 0 } },
-				"location.coordinates": { $ne: [0, 0] },
-				"roomCountDetails.roomType": roomType, // Ensure that at least one room of the specified type exists.
-			});
+		if (roomType !== "all") {
+			// Add roomType filtering to the query
+			hotelQuery["roomCountDetails.roomType"] = roomType;
 		}
+
+		// Fetch hotels matching the base query
+		let hotels = await HotelDetails.find(hotelQuery);
 
 		// Filter out only the relevant room types in roomCountDetails
 		const filteredHotels = hotels.map((hotel) => {
