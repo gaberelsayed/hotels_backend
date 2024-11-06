@@ -35,6 +35,20 @@ const hotel_detailsSchema = new mongoose.Schema(
 			lowercase: true,
 			default: "",
 		},
+		aboutHotel: {
+			type: String,
+			trim: true,
+			lowercase: true,
+			default: "",
+		},
+
+		aboutHotelArabic: {
+			type: String,
+			trim: true,
+			lowercase: true,
+			default: "",
+		},
+
 		phone: {
 			type: String,
 			trim: true,
