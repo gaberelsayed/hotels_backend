@@ -5,7 +5,7 @@ const confirmationEmail = (reservationData) => {
 	const checkinDateSaudi = moment(reservationData.checkin_date)
 		.tz("Asia/Riyadh")
 		.format("dddd, MMMM Do YYYY");
-	const checkoutDateSaudi = moment(reservationData.checkout_date)
+	const checkoutDateSaudi = moment(reservationData.checkout_date)         
 		.tz("Asia/Riyadh")
 		.format("dddd, MMMM Do YYYY");
 	const bookedAtSaudi = moment(reservationData.booked_at)
